@@ -4,9 +4,12 @@ import (
 	"database/sql"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/0xalby/base/config"
+	"github.com/0xalby/base/database"
+	"github.com/0xalby/base/database/drivers"
 	"github.com/0xalby/base/middleware"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
@@ -41,8 +44,38 @@ func main() {
 	// Initializing JWT
 	config.InitJWT(os.Getenv("API_JWT_SECRET"))
 	// Creating a database connection
+	var driver database.Driver
+	switch os.Getenv("DATABASE_DRIVER") {
+	case "sqlite3":
+		driver = &drivers.DriverSqlite3{}
+	case "postgres":
+	case "turso":
+	default:
+		log.Fatal("database driver unsupported or not set")
+	}
+	connection, err := driver.MustConnect(
+		os.Getenv("DATABASE_ADDRESS"),
+		os.Getenv("DATABASE_USER"),
+		os.Getenv("DATABASE_PASSWORD"),
+	)
+	if err != nil {
+		log.Errorf("failed to connect to the %s database %s", os.Getenv("DATABASE_DRIVER"), err)
+		return
+	}
+	defer func() {
+		if err := driver.Close(); err != nil {
+			log.Errorf("failed to close the database connection %s", err)
+			return
+		}
+	}()
+	maxOpenConns, _ := strconv.Atoi(os.Getenv("POSTGRES_MAX_OPEN_CONNS"))
+	maxIdleConns, _ := strconv.Atoi(os.Getenv("POSTGRES_MAX_IDLE_CONNS"))
+	maxConnsLifetimeMinutes, _ := strconv.Atoi(os.Getenv("POSTGRES_MAX_CONNS_LIFETIME"))
+	connection.SetMaxOpenConns(maxOpenConns)
+	connection.SetMaxIdleConns(maxIdleConns)
+	connection.SetConnMaxLifetime(time.Duration(maxConnsLifetimeMinutes) * time.Minute)
 	// Creating an API instance
-	api := NewAPI(os.Getenv("API_ADDRESS"), nil)
+	api := NewAPI(os.Getenv("API_ADDRESS"), connection)
 	// Running the new instance
 	api.Run()
 }

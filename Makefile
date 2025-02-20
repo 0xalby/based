@@ -1,3 +1,5 @@
+include .env
+
 .PHONY: build run clean up down status release docker
 
 build:
@@ -9,10 +11,12 @@ run: build
 clean:
 	@rm -r bin
 
+up:
+	@GOOSE_DRIVER=$(DATABASE_DRIVER) GOOSE_DBSTRING=$(DATABASE_ADDRESS) goose -dir=database/migrations up
 down:
-	@GOOSE_DRIVER=$(DATABASE_DRIVER) GOOSE_DBSTRING=database/$(DATABASE_NAME) goose -dir=database/migrations down
+	@GOOSE_DRIVER=$(DATABASE_DRIVER) GOOSE_DBSTRING=$(DATABASE_ADDRESS) goose -dir=database/migrations down
 status:
-	@GOOSE_DRIVER=$(DATABASE_DRIVER) GOOSE_DBSTRING=database/$(DATABASE_NAME) goose -dir=database/migrations status
+	@GOOSE_DRIVER=$(DATABASE_DRIVER) GOOSE_DBSTRING=$(DATABASE_ADDRESS) goose -dir=database/migrations status
 
 release:
 	@env GOOS="windows" GOARCH="amd64" go build -o bin/base_windows_amd64.exe -ldflags="-s -w -extldflags=-static" .
