@@ -101,16 +101,15 @@ func (server *API) Run() error {
 	subrouter.Route("/auth", func(r chi.Router) {
 		subrouter.Post("/register", func(w http.ResponseWriter, r *http.Request) {})
 		subrouter.Post("/login", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/verification/generate", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/verification/code", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/otp/generate", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/otp/code", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/otp/recover", func(w http.ResponseWriter, r *http.Request) {})
+		subrouter.Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+		subrouter.Post("/totp/generate", func(w http.ResponseWriter, r *http.Request) {})
+		subrouter.Post("/totp/code", func(w http.ResponseWriter, r *http.Request) {})
+		subrouter.Post("/totp/recover", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
 		subrouter.Put("/update/email", func(w http.ResponseWriter, r *http.Request) {})
 		subrouter.Put("/update/password", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/recovery", func(w http.ResponseWriter, r *http.Request) {})
+		subrouter.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
 		subrouter.Delete("/delete", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	// Listening
