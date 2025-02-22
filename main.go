@@ -10,7 +10,9 @@ import (
 	"github.com/0xalby/base/config"
 	"github.com/0xalby/base/database"
 	"github.com/0xalby/base/database/drivers"
+	"github.com/0xalby/base/handlers"
 	"github.com/0xalby/base/middleware"
+	"github.com/0xalby/base/services"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httprate"
@@ -95,22 +97,29 @@ func (server *API) Run() error {
 	subrouter := chi.NewRouter()
 	// Mounting the subrouter with versioning
 	router.Mount("/api/v"+os.Getenv("API_VERSION"), subrouter)
+	// Creating services
+	accountService := &services.AccountsService{DB: server.db}
+	// EmailService := &services.EmailService{DB: server.db}
+	// TotpService := &services.TotpService{DB: server.db}
+	// Creating handlers
+	accountHandler := &handlers.AccountsHandler{AS: accountService}
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
-		subrouter.Post("/register", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/login", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/totp/generate", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/totp/code", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/totp/recover", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/register", accountHandler.Register)
+		r.Post("/login", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/totp/generate", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/totp/code", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/totp/recover", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
-		subrouter.Put("/update/email", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Put("/update/password", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
-		subrouter.Delete("/delete", func(w http.ResponseWriter, r *http.Request) {})
+		r.Put("/update/email", func(w http.ResponseWriter, r *http.Request) {})
+		r.Put("/update/password", func(w http.ResponseWriter, r *http.Request) {})
+		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
+		r.Delete("/delete", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	// Listening
 	logger.Printf("running on %s", server.addr)

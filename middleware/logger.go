@@ -6,11 +6,19 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// Logger
+// Buffered logging channel
+var logChan = make(chan string, 100)
+
+// Middleware asynchronously logging every request
 func Logger(logger log.Logger) func(next http.Handler) http.Handler {
+	go func() {
+		for msg := range logChan {
+			logger.Info(msg)
+		}
+	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger.Infof("recieved %s on %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			logChan <- "recieved " + r.Method + " on " + r.URL.Path + " from " + r.RemoteAddr
 			next.ServeHTTP(w, r)
 		})
 	}
