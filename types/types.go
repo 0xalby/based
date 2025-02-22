@@ -29,7 +29,7 @@ type PayloadTotpGenerate struct{}
 type PayloadTotpCode struct {
 	Code string `json:"code" validate:"required,len=6,ascii"`
 }
-type PayloadTotpRecover struct{}
+type PayloadTotpBackup struct{}
 type PayloadAccountUpdateEmail struct {
 	Old string `json:"old" validate:"required,email"`
 	New string `json:"new" validate:"required,email"`
@@ -38,7 +38,7 @@ type PayloadAccountUpdatePassword struct {
 	Old string `json:"old" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 	New string `json:"new" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }
-type PayloadAccountRecover struct{}
+type PayloadAccountRecovery struct{}
 type PayloadAccountDelete struct {
 	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }

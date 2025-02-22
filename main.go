@@ -100,27 +100,29 @@ func (server *API) Run() error {
 	router.Mount("/api/v"+os.Getenv("API_VERSION"), subrouter)
 	// Creating services
 	accountService := &services.AccountsService{DB: server.db}
-	// emailService := &services.EmailService{DB: server.db}
+	emailService := &services.EmailService{DB: server.db}
 	// totpService := &services.TotpService{DB: server.db}
 	// Creating handlers
 	accountHandler := &handlers.AccountsHandler{AS: accountService}
-	authHandler := &handlers.AuthHandler{AS: accountService}
+	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService}
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
-		r.With(jwtauth.Verifier(config.TokenAuth)).
-			With(jwtauth.Authenticator(config.TokenAuth)).
-			Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+		if os.Getenv("SMTP_ADDRESS") != "" {
+			r.With(jwtauth.Verifier(config.TokenAuth)).
+				With(jwtauth.Authenticator(config.TokenAuth)).
+				Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+		}
 		r.Route("/totp", func(r chi.Router) {
 			r.Use(middleware.Verified(authHandler))
 			r.Use(jwtauth.Verifier(config.TokenAuth))
 			r.Use(jwtauth.Authenticator(config.TokenAuth))
 			r.Post("/generate", func(w http.ResponseWriter, r *http.Request) {})
 			r.Post("/code", func(w http.ResponseWriter, r *http.Request) {})
-			r.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
+			r.Post("/backup", func(w http.ResponseWriter, r *http.Request) {})
 		})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
@@ -130,7 +132,7 @@ func (server *API) Run() error {
 		r.Put("/update/email", accountHandler.UpdateEmail)
 		r.Put("/update/password", accountHandler.UpdatePassword)
 		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})
-		r.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/recovery", func(w http.ResponseWriter, r *http.Request) {})
 		r.Delete("/delete", accountHandler.DeleteAccount)
 	})
 	// Listening

@@ -9,16 +9,15 @@ import (
 	"github.com/0xalby/base/services"
 	"github.com/0xalby/base/types"
 	"github.com/0xalby/base/utils"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
 	AS *services.AccountsService
-	// ES *services.EmailService
+	ES *services.EmailService
 	// TS *services.TotpService
 }
 
-func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Creating a payload
 	var payload types.PayloadRegister
 	// Unmarshaling payload
@@ -30,7 +29,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Hashing password
-	hashed, err := Hash(payload.Password)
+	hashed, err := utils.Hash(payload.Password)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "failed to hash password")
 		return
@@ -40,7 +39,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:    payload.Email,
 		Password: hashed,
 	}
-	if err := h.AS.CreateAccount(account); err != nil {
+	if err := handler.AS.CreateAccount(account); err != nil {
 		// switch err.Error()
 		if err.Error() == "email already used" {
 			utils.Response(w, http.StatusConflict, "email already used")
@@ -48,8 +47,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 	}
-	// Optionally send verification email
+	// Optionally sending a verification email
 	if os.Getenv("SMTP_ADDRESS") != "" {
+		// Generates a random code
+		code, err := utils.GenerateRandomCode()
+		if err != nil {
+			utils.Response(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		if err := handler.ES.SendVerificationEmail(account.Email, code); err != nil {
+			utils.Response(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
 	}
 	// Sending a response
 	/* Here we could have an http redirect to the email verification page, but can also be handled frontend side */
@@ -105,13 +114,4 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (handlers *AuthHandler) Verification(w http.ResponseWriter, r *http.Request) {
 
-}
-
-// Hashes a string
-func Hash(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hash), nil
 }
