@@ -3,7 +3,9 @@ package handlers
 import (
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/0xalby/base/config"
 	"github.com/0xalby/base/services"
 	"github.com/0xalby/base/types"
 	"github.com/0xalby/base/utils"
@@ -16,7 +18,6 @@ type AuthHandler struct {
 	// TS *services.TotpService
 }
 
-// Registers a new user
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Creating a payload
 	var payload types.PayloadRegister
@@ -53,6 +54,57 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Sending a response
 	/* Here we could have an http redirect to the email verification page, but can also be handled frontend side */
 	utils.Response(w, http.StatusCreated, "created")
+}
+
+func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	// Creating a payload
+	var payload types.PayloadRegister
+	// Unmarshaling payload
+	if err := utils.Unmarshal(w, r, &payload); err != nil {
+		return
+	}
+	// Validating payload
+	if err := utils.Validate(w, r, &payload); err != nil {
+		return
+	}
+	// Getting the account
+	account, err := handler.AS.GetAccountByEmail(payload.Email)
+	if err != nil {
+		utils.Response(w, http.StatusBadRequest, "wrong email")
+		return
+	}
+	// Comparing passwords
+	if !utils.CompareHashedAndPlain(account.Password, payload.Password) {
+		utils.Response(w, http.StatusBadRequest, "wrong password")
+		return
+	}
+	// Generating a new jwt token providing access to protected routes for some time
+	expiration := time.Now().Add(time.Hour * 24 * 7)
+	_, token, err := config.TokenAuth.Encode(map[string]interface{}{
+		"account": account.ID,
+		"exp":     expiration.Unix(),
+	})
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "failes to generate jwt")
+		return
+	}
+	// Setting the jwt token as a secure httponly cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		MaxAge:   int(time.Until(expiration).Seconds()),
+		SameSite: http.SameSiteLaxMode,
+		Expires:  expiration})
+	/* Here we could have an http redirect to the dashboard page, but can also be handled frontend side */
+	response := map[string]string{"token": token, "redirect": "/dashboard"}
+	utils.Response(w, http.StatusOK, response)
+}
+
+func (handlers *AuthHandler) Verification(w http.ResponseWriter, r *http.Request) {
+
 }
 
 // Hashes a string

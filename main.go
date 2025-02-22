@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httprate"
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/joho/godotenv"
 )
 
@@ -109,13 +110,23 @@ func (server *API) Run() error {
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
-		r.Post("/login", func(w http.ResponseWriter, r *http.Request) {})
-		r.Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
-		r.Post("/totp/generate", func(w http.ResponseWriter, r *http.Request) {})
-		r.Post("/totp/code", func(w http.ResponseWriter, r *http.Request) {})
-		r.Post("/totp/recover", func(w http.ResponseWriter, r *http.Request) {})
+		r.Post("/login", authHandler.Login)
+		r.With(jwtauth.Verifier(config.TokenAuth)).
+			With(jwtauth.Authenticator(config.TokenAuth)).
+			Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+		r.Route("/totp", func(r chi.Router) {
+			r.Use(middleware.Verified(authHandler))
+			r.Use(jwtauth.Verifier(config.TokenAuth))
+			r.Use(jwtauth.Authenticator(config.TokenAuth))
+			r.Post("/generate", func(w http.ResponseWriter, r *http.Request) {})
+			r.Post("/code", func(w http.ResponseWriter, r *http.Request) {})
+			r.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
+		})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
+		r.Use(middleware.Verified(authHandler))
+		r.Use(jwtauth.Verifier(config.TokenAuth))
+		r.Use(jwtauth.Authenticator(config.TokenAuth))
 		r.Put("/update/email", accountHandler.UpdateEmail)
 		r.Put("/update/password", accountHandler.UpdatePassword)
 		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})

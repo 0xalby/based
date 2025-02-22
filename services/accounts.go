@@ -119,6 +119,33 @@ func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 	return account, nil
 }
 
+func (service *AccountsService) GetAccountByEmail(email string) (*types.Account, error) {
+	// Querying the database
+	rows, err := service.DB.Query("SELECT * FROM accounts WHERE email = ?", email)
+	if err != nil {
+		log.Error("failed to database query", "err", err)
+		return nil, err
+	}
+	defer rows.Close()
+	// Scanning the rows
+	var account *types.Account
+	for rows.Next() {
+		account, err = scanAccounts(rows)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err = rows.Err(); err != nil {
+		log.Error("failed interating rows", "err", err)
+		return nil, err
+	}
+	if account == nil || account.ID == 0 {
+		log.Error("account doesn't exists")
+		return nil, fmt.Errorf("account doesn't exists")
+	}
+	return account, nil
+}
+
 // Scans accounts's table rows
 func scanAccounts(row *sql.Rows) (*types.Account, error) {
 	var account types.Account

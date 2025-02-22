@@ -1,5 +1,4 @@
 # TODO
-* Logging responses status codes and message
 * Email service
 * TOTP service
 * Accounts handler

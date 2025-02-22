@@ -89,9 +89,9 @@ func ContextClaimID(r *http.Request) (int, error) {
 		log.Error("failed to get claims", "err", err)
 		return 0, err
 	}
-	id, ok := claims["account_id"].(float64)
+	id, ok := claims["account"].(float64)
 	if !ok {
-		log.Error("account_id not found in claims or not a float64")
+		log.Error("account not found in claims or not a float64")
 		return 0, err
 	}
 	return int(id), nil

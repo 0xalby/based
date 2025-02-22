@@ -24,7 +24,7 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Claiming the account from request context
+	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -57,7 +57,7 @@ func (handler *AccountsHandler) UpdatePassword(w http.ResponseWriter, r *http.Re
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Claiming the account from request context
+	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -101,7 +101,7 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Claiming the account from request context
+	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
