@@ -11,10 +11,17 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Unmarshals json into a type struct
 func Unmarshal(w http.ResponseWriter, r *http.Request, payload any) error {
+	// Checks for an empty payload
+	if r.Body == nil {
+		Response(w, http.StatusBadRequest, "empty request body")
+		return fmt.Errorf("empty request")
+	}
+	// Decoding the payload
 	err := json.NewDecoder(r.Body).Decode(payload)
 	if err != nil {
 		Response(w, http.StatusBadRequest, "invalid request body")
@@ -28,15 +35,9 @@ var Validator = validator.New(validator.WithRequiredStructEnabled())
 
 // Validates an application/json body
 func Validate(w http.ResponseWriter, r *http.Request, payload any) error {
-	// Checks for an empty payload
-	if r.Body == nil {
-		Response(w, http.StatusBadRequest, "empty request body")
-		return fmt.Errorf("empty request")
-	}
-	// Checks for validation errors in the payload
 	if err := Validator.Struct(payload); err != nil {
 		if verrs := err.(validator.ValidationErrors); verrs != nil {
-			Response(w, http.StatusBadRequest, "failed to validate request body")
+			Response(w, http.StatusBadRequest, "failed to validate request body"+verrs.Error())
 			return errors.New(verrs.Error())
 		}
 	}
@@ -57,13 +58,13 @@ func Request(method string, headers map[string]string, endpoint string, payload 
 	// Marshaling the payload
 	marshal, err := json.Marshal(payload)
 	if err != nil {
-		log.Error("failed to marshal")
+		log.Error("failed to marshal", "err", err)
 		return nil, err
 	}
 	// Createing an http request
 	req, err := http.NewRequest(method, endpoint, bytes.NewBuffer(marshal))
 	if err != nil {
-		log.Error("failed to create a request")
+		log.Error("failed to create a request", "err", err)
 		return nil, err
 	}
 	// Attaching headers
@@ -75,7 +76,7 @@ func Request(method string, headers map[string]string, endpoint string, payload 
 	// Sending the request
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Error("failed to successfully send a request")
+		log.Error("failed to successfully send a request", "err", err)
 		return resp, err
 	}
 	return resp, nil
@@ -85,7 +86,7 @@ func Request(method string, headers map[string]string, endpoint string, payload 
 func ContextClaimID(r *http.Request) (int, error) {
 	_, claims, err := jwtauth.FromContext(r.Context())
 	if err != nil {
-		log.Error("failed to get claims")
+		log.Error("failed to get claims", "err", err)
 		return 0, err
 	}
 	id, ok := claims["account_id"].(float64)
@@ -94,4 +95,9 @@ func ContextClaimID(r *http.Request) (int, error) {
 		return 0, err
 	}
 	return int(id), nil
+}
+
+func CompareHashedAndPlain(hashed, plain string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(plain))
+	return err == nil
 }

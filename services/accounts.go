@@ -28,7 +28,7 @@ func (service *AccountsService) CreateAccount(account *types.Account) error {
 	// Checking for affected rows
 	affected, err := rows.RowsAffected()
 	if err != nil {
-		log.Error("failed to get affacted rows")
+		log.Error("failed to get affacted rows", "err", err)
 		return err
 	}
 	if affected == 0 {
@@ -38,11 +38,65 @@ func (service *AccountsService) CreateAccount(account *types.Account) error {
 	return nil
 }
 
+func (service *AccountsService) UpdateAccountEmail(id int, new, old string) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET email = ? WHERE email = ? AND id = ?", new, old, id)
+	if err != nil {
+		log.Error("failed to update the database", "err", err)
+		return err
+	}
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to update account email")
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}
+
+func (service *AccountsService) UpdateAccountPassword(id int, new, old string) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET password = ? WHERE password = ? AND id = ?", new, old, id)
+	if err != nil {
+		log.Error("failed to update the database", "err", err)
+		return err
+	}
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to update account password")
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}
+
+func (service *AccountsService) DeleteAccount(id int) error {
+	rows, err := service.DB.Exec("DELETE FROM accounts WHERE id = ?", id)
+	if err != nil {
+		log.Error("failed to delete account", "err", err)
+		return err
+	}
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to delete account")
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}
+
 func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 	// Querying the database
 	rows, err := service.DB.Query("SELECT * FROM accounts WHERE id = ?", id)
 	if err != nil {
-		log.Error("failed to database query")
+		log.Error("failed to database query", "err", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -55,7 +109,7 @@ func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 		}
 	}
 	if err = rows.Err(); err != nil {
-		log.Error("failed interating rows")
+		log.Error("failed interating rows", "err", err)
 		return nil, err
 	}
 	if account == nil || account.ID == 0 {
@@ -79,7 +133,7 @@ func scanAccounts(row *sql.Rows) (*types.Account, error) {
 		&account.Created,
 	)
 	if err != nil {
-		log.Error("failed to database scan")
+		log.Error("failed to database scan", "err", err)
 		return nil, err
 	}
 	return &account, err

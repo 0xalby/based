@@ -99,15 +99,16 @@ func (server *API) Run() error {
 	router.Mount("/api/v"+os.Getenv("API_VERSION"), subrouter)
 	// Creating services
 	accountService := &services.AccountsService{DB: server.db}
-	// EmailService := &services.EmailService{DB: server.db}
-	// TotpService := &services.TotpService{DB: server.db}
+	// emailService := &services.EmailService{DB: server.db}
+	// totpService := &services.TotpService{DB: server.db}
 	// Creating handlers
 	accountHandler := &handlers.AccountsHandler{AS: accountService}
+	authHandler := &handlers.AuthHandler{AS: accountService}
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
-		r.Post("/register", accountHandler.Register)
+		r.Post("/register", authHandler.Register)
 		r.Post("/login", func(w http.ResponseWriter, r *http.Request) {})
 		r.Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
 		r.Post("/totp/generate", func(w http.ResponseWriter, r *http.Request) {})
@@ -115,11 +116,11 @@ func (server *API) Run() error {
 		r.Post("/totp/recover", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
-		r.Put("/update/email", func(w http.ResponseWriter, r *http.Request) {})
-		r.Put("/update/password", func(w http.ResponseWriter, r *http.Request) {})
+		r.Put("/update/email", accountHandler.UpdateEmail)
+		r.Put("/update/password", accountHandler.UpdatePassword)
 		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})
 		r.Post("/recover", func(w http.ResponseWriter, r *http.Request) {})
-		r.Delete("/delete", func(w http.ResponseWriter, r *http.Request) {})
+		r.Delete("/delete", accountHandler.DeleteAccount)
 	})
 	// Listening
 	logger.Printf("running on %s", server.addr)

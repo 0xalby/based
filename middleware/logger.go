@@ -2,24 +2,34 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/charmbracelet/log"
 )
 
-// Buffered logging channel
-var logChan = make(chan string, 100)
+// customWriter is a wrapper around http.ResponseWriter to capture status
+type customWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
 
-// Middleware asynchronously logging every request
+// Custom WriteHeader function
+func (ww *customWriter) WriteHeader(code int) {
+	ww.statusCode = code
+	ww.ResponseWriter.WriteHeader(code)
+}
+
+// Logger middleware that logs requests and responses
 func Logger(logger log.Logger) func(next http.Handler) http.Handler {
-	go func() {
-		for msg := range logChan {
-			logger.Info(msg)
-		}
-	}()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logChan <- "recieved " + r.Method + " on " + r.URL.Path + " from " + r.RemoteAddr
-			next.ServeHTTP(w, r)
+			start := time.Now()
+			logger.Infof("received %s on %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			// Wrap the response writer to capture the response
+			ww := &customWriter{ResponseWriter: w}
+			next.ServeHTTP(ww, r)
+			duration := time.Since(start)
+			logger.Infof("responded with %d in %s", ww.statusCode, duration)
 		})
 	}
 }

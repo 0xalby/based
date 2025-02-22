@@ -16,7 +16,7 @@ type Account struct {
 // Payloads
 type PayloadRegister struct {
 	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=12,max=128,containsany=!\"£$%&/()[]{}=?^+-@#;:<>_|~"`
+	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }
 type PayloadLogin struct {
 	Email    string `json:"email" validate:"required,email"`
@@ -35,10 +35,10 @@ type PayloadAccountUpdateEmail struct {
 	New string `json:"new" validate:"required,email"`
 }
 type PayloadAccountUpdatePassword struct {
-	Old string `json:"old" validate:"required,min=12,max=128,containsany=!\"£$%&/()[]{}=?^+-@#;:<>_|~"`
-	New string `json:"new" validate:"required,min=12,max=128,containsany=!\"£$%&/()[]{}=?^+-@#;:<>_|~"`
+	Old string `json:"old" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
+	New string `json:"new" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }
 type PayloadAccountRecover struct{}
 type PayloadAccountDelete struct {
-	Password string `json:"password" validate:"required,min=12,max=128,containsany=!\"£$%&/()[]{}=?^+-@#;:<>_|~"`
+	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }

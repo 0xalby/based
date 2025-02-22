@@ -20,7 +20,7 @@ func (d *DriverSqlite3) MustConnect(uri, user, password string) (*sql.DB, error)
 	}
 	// Pinging to verify the connection is alive
 	if err = d.db.Ping(); err != nil {
-		log.Fatal("failed to ping sqlite database", err)
+		log.Fatal("failed to ping sqlite database", "err", err)
 		return nil, err
 	}
 	return d.db, nil
