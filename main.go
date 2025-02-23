@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"net/http"
 	"os"
 	"strconv"
@@ -83,6 +84,9 @@ func main() {
 	api.Run()
 }
 
+//go:embed templates/*
+var templateFS embed.FS
+
 // Running
 func (server *API) Run() error {
 	// Creating a router
@@ -100,7 +104,7 @@ func (server *API) Run() error {
 	router.Mount("/api/v"+os.Getenv("API_VERSION"), subrouter)
 	// Creating services
 	accountService := &services.AccountsService{DB: server.db}
-	emailService := &services.EmailService{DB: server.db}
+	emailService := &services.EmailService{FS: templateFS, DB: server.db}
 	// totpService := &services.TotpService{DB: server.db}
 	// Creating handlers
 	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService}

@@ -3,9 +3,9 @@ package services
 import (
 	"bytes"
 	"database/sql"
+	"embed"
 	"fmt"
 	"html/template"
-	"io"
 	"os"
 	"strconv"
 	"time"
@@ -17,6 +17,7 @@ import (
 // ATTENTION in this file for slightly better structuring I declared relevant structs below the functions
 
 type EmailService struct {
+	FS embed.FS
 	DB *sql.DB
 }
 
@@ -35,21 +36,8 @@ func (service *EmailService) SendEmail(email, subject, path string, data interfa
 		User:     os.Getenv("SMTP_USER"),
 		Password: os.Getenv("SMTP_PASSWORD"),
 	}
-	// Opening the template file
-	file, err := os.Open(path)
-	if err != nil {
-		log.Error("failed to open email template", "err", err)
-		return err
-	}
-	defer file.Close()
-	// Reading the template file
-	templateData, err := io.ReadAll(file)
-	if err != nil {
-		log.Error("failed to read email template", "err", err)
-		return err
-	}
-	// Creating and parsing the template
-	t, err := template.New("emailTemplate").Parse(string(templateData))
+	// Parsing the template from embedded filesystem
+	t, err := template.ParseFS(service.FS, path)
 	if err != nil {
 		log.Error("failed to parse email template", "err", err)
 		return err
