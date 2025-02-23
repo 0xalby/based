@@ -40,8 +40,8 @@ func (service *AccountsService) CreateAccount(account *types.Account) error {
 }
 
 // Updates account email in the database
-func (service *AccountsService) UpdateAccountEmail(id int, new, old string) error {
-	rows, err := service.DB.Exec("UPDATE accounts SET email = ? WHERE email = ? AND id = ?", new, old, id)
+func (service *AccountsService) UpdateAccountEmail(email string, id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET email = ? WHERE id = ?", email, id)
 	if err != nil {
 		log.Error("failed to update the database", "err", err)
 		return err
@@ -156,6 +156,7 @@ func scanAccounts(row *sql.Rows) (*types.Account, error) {
 	err := row.Scan(
 		&account.ID,
 		&account.Email,
+		&account.Pending,
 		&account.Password,
 		&account.Verified,
 		&account.TotpEnabled,

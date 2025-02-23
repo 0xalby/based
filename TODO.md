@@ -1,6 +1,5 @@
 # TODO
-* Commenting
-* UpdateAccountEmail email verification then sending a notification
+* Review and first audit
 * Account recovery
 * TOTP service
 * Add sample email templates

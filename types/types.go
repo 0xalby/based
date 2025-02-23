@@ -6,6 +6,7 @@ import "time"
 type Account struct {
 	ID          int
 	Email       string
+	Pending     string
 	Password    string
 	Verified    bool
 	TotpEnabled bool
@@ -30,9 +31,11 @@ type PayloadTotpCode struct {
 	Code string `json:"code" validate:"required,len=6,ascii"`
 }
 type PayloadTotpBackup struct{}
+type PayloadAccountSendConfirmationEmail struct {
+	Email string `json:"new" validate:"required,email"`
+}
 type PayloadAccountUpdateEmail struct {
-	Old string `json:"old" validate:"required,email"`
-	New string `json:"new" validate:"required,email"`
+	Code string `json:"code" validate:"required,len=6,ascii"`
 }
 type PayloadAccountUpdatePassword struct {
 	Old string `json:"old" validate:"required,min=12,max=128,containsany=!@#$%^&*"`

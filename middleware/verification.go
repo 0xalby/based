@@ -19,7 +19,7 @@ func Verified(handler *handlers.AuthHandler) func(http.Handler) http.Handler {
 			// Claiming the account id from request context
 			id, err := utils.ContextClaimID(r)
 			if err != nil {
-				if err.Error() == "account not found in claims or not a float64" {
+				if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
 					utils.Response(w, http.StatusUnauthorized, "invalid token")
 					return
 				}

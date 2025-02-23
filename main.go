@@ -129,6 +129,7 @@ func (server *API) Run() error {
 		r.Use(jwtauth.Verifier(config.TokenAuth))
 		r.Use(jwtauth.Authenticator(config.TokenAuth))
 		r.Use(middleware.Verified(authHandler))
+		r.Post("/confirmation", accountHandler.SendConfirmationEmail)
 		r.Put("/update/email", accountHandler.UpdateEmail)
 		r.Put("/update/password", accountHandler.UpdatePassword)
 		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})

@@ -60,7 +60,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
-		// Getting account id by email
+		// Getting account by email
 		account, err = handler.AS.GetAccountByEmail(account.Email)
 		if err != nil {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -137,15 +137,26 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
-		if err.Error() == "account not found in claims or not a float64" {
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
 			utils.Response(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	// Comparing verification codes
-	if err := handler.ES.CompareVerificationCode(payload.Code, id); err != nil {
+	// Getting the account
+	account, err := handler.AS.GetAccountByID(id)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Ensuring the account isn't already verified
+	if account.Verified {
+		utils.Response(w, http.StatusForbidden, "account already verified")
+		return
+	}
+	// comparing verification codes
+	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
 		if err.Error() == "invalid verification code" || err.Error() == "verification code expired" {
 			utils.Response(w, http.StatusUnauthorized, "wrong verification code")
 			return

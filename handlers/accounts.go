@@ -14,6 +14,50 @@ type AccountsHandler struct {
 	ES *services.EmailService
 }
 
+func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *http.Request) {
+	// Creating a payload
+	var payload types.PayloadAccountSendConfirmationEmail
+	// Unmarshaling payload
+	if err := utils.Unmarshal(w, r, &payload); err != nil {
+		return
+	}
+	// Validating payload
+	if err := utils.Validate(w, r, &payload); err != nil {
+		return
+	}
+	// Generates a random code
+	code, err := utils.GenerateRandomCode(6)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
+	if err != nil {
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Adds the code to the database
+	if err := handler.ES.AddVerificationCode(code, id); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+	}
+	//  pending email
+	if err := handler.ES.SavePending(payload.Email, id); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Sending confirmation email
+	if err := handler.ES.SendVerificationEmail(payload.Email, code); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	utils.Response(w, http.StatusOK, "confirmation email sent")
+}
+
 func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Request) {
 	// Creating a payload
 	var payload types.PayloadAccountUpdateEmail
@@ -35,17 +79,32 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	/* Send email confermation to change */
-	// Updating account email
-	if err := handler.AS.UpdateAccountEmail(id, payload.New, payload.Old); err != nil {
-		if err.Error() == "no rows affected" {
-			utils.Response(w, http.StatusForbidden, "wrong email address")
+	// Getting the account
+	account, err := handler.AS.GetAccountByID(id)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Comparing confirmation codes
+	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
+		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code expired" {
+			utils.Response(w, http.StatusUnauthorized, "wrong confirmation code")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	// Optionally send email notification
+	// Updating account email
+	if err := handler.AS.UpdateAccountEmail(account.Pending, id); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Clean pending email
+	if err := handler.ES.CleanPendingEmail(id); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	/* Optionally send email notification */
 	if os.Getenv("SMTP_ADDRESS") != "" {
 	}
 	// Sending a response
@@ -66,7 +125,7 @@ func (handler *AccountsHandler) UpdatePassword(w http.ResponseWriter, r *http.Re
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
-		if err.Error() == "account not found in claims or not a float64" {
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
 			utils.Response(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
@@ -121,7 +180,7 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
-		if err.Error() == "account not found in claims or not a float64" {
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
 			utils.Response(w, http.StatusUnauthorized, "invalid token")
 			return
 		}

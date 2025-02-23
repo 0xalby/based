@@ -141,20 +141,20 @@ func (service *EmailService) AddVerificationCode(code string, account int) error
 }
 
 // Compares the stored and the inputted verification codes
-func (service *EmailService) CompareVerificationCode(code string, account int) error {
+func (service *EmailService) CompareCodes(code string, account int) error {
 	var storedCode string
 	var expiration time.Time
 	err := service.DB.QueryRow("SELECT code, expiration FROM verification WHERE account = ? AND code = ?", account, code).
 		Scan(&storedCode, &expiration)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("invalid verification code")
+			return fmt.Errorf("invalid verification or confirmation code")
 		}
 		log.Error("failed to database select", "err", err)
 		return err
 	}
 	if time.Now().After(expiration) {
-		return fmt.Errorf("verification code has expired")
+		return fmt.Errorf("verification or confirmation code has expired")
 	}
 	_, err = service.DB.Exec("DELETE from verification WHERE account = ?", account)
 	if err != nil {
@@ -176,6 +176,45 @@ func (service *EmailService) MarkAccountAsVerified(id int) error {
 		}
 		if affected == 0 {
 			log.Error("failed to add verification code")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
+// Saves pending email before confirmation
+func (service *EmailService) SavePending(email string, account int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", email, account)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to add pending email")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (service *EmailService) CleanPendingEmail(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", "", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to clean pending email")
 			return fmt.Errorf("no rows affected")
 		}
 		log.Error("failed to database update", "err", err)
