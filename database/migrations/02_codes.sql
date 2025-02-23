@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS verification (
+CREATE TABLE IF NOT EXISTS codes (
   `id` INTEGER NOT NULL PRIMARY KEY,
   `code` VARCHAR(255) NOT NULL,
   `account` INTEGER NOT NULL, 
@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS verification (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE verification;
+DROP TABLE codes;
 -- +goose StatementEnd

@@ -45,7 +45,7 @@ func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *
 	if err := handler.ES.AddVerificationCode(code, id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 	}
-	//  pending email
+	// Saving pending email
 	if err := handler.ES.SavePending(payload.Email, id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
@@ -88,7 +88,7 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 	// Comparing confirmation codes
 	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
 		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code expired" {
-			utils.Response(w, http.StatusUnauthorized, "wrong confirmation code")
+			utils.Response(w, http.StatusUnauthorized, "invalid confirmation code")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -122,6 +122,11 @@ func (handler *AccountsHandler) UpdatePassword(w http.ResponseWriter, r *http.Re
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
+	// Ensuring the passwords are different
+	if payload.Old == payload.New {
+		utils.Response(w, http.StatusBadRequest, "the new password has to be different then the old one")
+		return
+	}
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
@@ -140,11 +145,17 @@ func (handler *AccountsHandler) UpdatePassword(w http.ResponseWriter, r *http.Re
 	}
 	// Comparing passwords
 	if !utils.CompareHashedAndPlain(account.Password, payload.Old) {
-		utils.Response(w, http.StatusUnauthorized, "wrong password")
+		utils.Response(w, http.StatusUnauthorized, "wrong email or password")
+		return
+	}
+	// Hashes the new password
+	hashed, err := utils.Hash(payload.New)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	// Updating account password
-	if err := handler.AS.UpdateAccountPassword(id, payload.New, payload.Old); err != nil {
+	if err := handler.AS.UpdateAccountPassword(hashed, id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}

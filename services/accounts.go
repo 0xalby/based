@@ -59,8 +59,8 @@ func (service *AccountsService) UpdateAccountEmail(email string, id int) error {
 }
 
 // Updates account password in the database
-func (service *AccountsService) UpdateAccountPassword(id int, new, old string) error {
-	rows, err := service.DB.Exec("UPDATE accounts SET password = ? WHERE password = ? AND id = ?", new, old, id)
+func (service *AccountsService) UpdateAccountPassword(password string, id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET password = ? WHERE id = ?", password, id)
 	if err != nil {
 		log.Error("failed to update the database", "err", err)
 		return err

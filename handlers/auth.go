@@ -28,7 +28,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Hashing password
+	// Hashing the password
 	hashed, err := utils.Hash(payload.Password)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "failed to hash password")
@@ -155,10 +155,10 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 		utils.Response(w, http.StatusForbidden, "account already verified")
 		return
 	}
-	// comparing verification codes
+	// Comparing verification codes
 	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
-		if err.Error() == "invalid verification code" || err.Error() == "verification code expired" {
-			utils.Response(w, http.StatusUnauthorized, "wrong verification code")
+		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code expired" {
+			utils.Response(w, http.StatusUnauthorized, "invalid verification code")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")

@@ -122,7 +122,7 @@ type notification struct {
 func (service *EmailService) AddVerificationCode(code string, account int) error {
 	// Executing on the database
 	expiration := time.Now().Add(15 * time.Minute) // expires in 15 minutes
-	rows, err := service.DB.Exec("INSERT INTO verification (code, account, expiration) VALUES (?,?,?)", code, account, expiration)
+	rows, err := service.DB.Exec("INSERT INTO codes (code, account, expiration) VALUES (?,?,?)", code, account, expiration)
 	if err != nil {
 		log.Error("failed to database insert", "err", err)
 		return err
@@ -144,7 +144,7 @@ func (service *EmailService) AddVerificationCode(code string, account int) error
 func (service *EmailService) CompareCodes(code string, account int) error {
 	var storedCode string
 	var expiration time.Time
-	err := service.DB.QueryRow("SELECT code, expiration FROM verification WHERE account = ? AND code = ?", account, code).
+	err := service.DB.QueryRow("SELECT code, expiration FROM codes WHERE account = ? AND code = ?", account, code).
 		Scan(&storedCode, &expiration)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -156,7 +156,7 @@ func (service *EmailService) CompareCodes(code string, account int) error {
 	if time.Now().After(expiration) {
 		return fmt.Errorf("verification or confirmation code has expired")
 	}
-	_, err = service.DB.Exec("DELETE from verification WHERE account = ?", account)
+	_, err = service.DB.Exec("DELETE FROM codes WHERE account = ?", account)
 	if err != nil {
 		log.Error("failed to delete used verification codes", "err", err)
 		return err
