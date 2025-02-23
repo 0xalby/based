@@ -103,7 +103,7 @@ func (server *API) Run() error {
 	emailService := &services.EmailService{DB: server.db}
 	// totpService := &services.TotpService{DB: server.db}
 	// Creating handlers
-	accountHandler := &handlers.AccountsHandler{AS: accountService}
+	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService}
 	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService}
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
@@ -114,21 +114,21 @@ func (server *API) Run() error {
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(jwtauth.Verifier(config.TokenAuth)).
 				With(jwtauth.Authenticator(config.TokenAuth)).
-				Post("/verification", func(w http.ResponseWriter, r *http.Request) {})
+				Post("/verification", authHandler.Verification)
 		}
 		r.Route("/totp", func(r chi.Router) {
-			r.Use(middleware.Verified(authHandler))
 			r.Use(jwtauth.Verifier(config.TokenAuth))
 			r.Use(jwtauth.Authenticator(config.TokenAuth))
+			r.Use(middleware.Verified(authHandler))
 			r.Post("/generate", func(w http.ResponseWriter, r *http.Request) {})
 			r.Post("/code", func(w http.ResponseWriter, r *http.Request) {})
 			r.Post("/backup", func(w http.ResponseWriter, r *http.Request) {})
 		})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
-		r.Use(middleware.Verified(authHandler))
 		r.Use(jwtauth.Verifier(config.TokenAuth))
 		r.Use(jwtauth.Authenticator(config.TokenAuth))
+		r.Use(middleware.Verified(authHandler))
 		r.Put("/update/email", accountHandler.UpdateEmail)
 		r.Put("/update/password", accountHandler.UpdatePassword)
 		r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})

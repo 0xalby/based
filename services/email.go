@@ -3,10 +3,12 @@ package services
 import (
 	"bytes"
 	"database/sql"
+	"fmt"
 	"html/template"
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"gopkg.in/gomail.v2"
@@ -86,7 +88,7 @@ func (service *EmailService) SendVerificationEmail(email, code string) error {
 		Recipient: email,
 		Code:      code,
 	}
-	return service.SendEmail(email, "Email Verification", "email/verification.html", data)
+	return service.SendEmail(email, "Email Verification", "templates/verification.html", data)
 }
 
 type verification struct {
@@ -97,7 +99,7 @@ type verification struct {
 // Sends an account recovery email
 func (service *EmailService) SendRecoveryEmail(email string) error {
 	data := recovery{}
-	return service.SendEmail(email, "Account Recovery", "email/recovery.html", data)
+	return service.SendEmail(email, "Account Recovery", "templates/recovery.html", data)
 }
 
 type recovery struct{}
@@ -108,10 +110,76 @@ func (service *EmailService) SendNotificationEmail(email, subject, message strin
 		Recipient: email,
 		Message:   message,
 	}
-	return service.SendEmail(email, subject, "email/notification.html", data)
+	return service.SendEmail(email, subject, "templates/notification.html", data)
 }
 
 type notification struct {
 	Recipient string
 	Message   string
+}
+
+// Adds the verification code to the database
+func (service *EmailService) AddVerificationCode(code string, account int) error {
+	// Executing on the database
+	expiration := time.Now().Add(15 * time.Minute) // expires in 15 minutes
+	rows, err := service.DB.Exec("INSERT INTO verification (code, account, expiration) VALUES (?,?,?)", code, account, expiration)
+	if err != nil {
+		log.Error("failed to database insert", "err", err)
+		return err
+	}
+	// Checking for affected rows
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to add verification code")
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}
+
+// Compares the stored and the inputted verification codes
+func (service *EmailService) CompareVerificationCode(code string, account int) error {
+	var storedCode string
+	var expiration time.Time
+	err := service.DB.QueryRow("SELECT code, expiration FROM verification WHERE account = ? AND code = ?", account, code).
+		Scan(&storedCode, &expiration)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("invalid verification code")
+		}
+		log.Error("failed to database select", "err", err)
+		return err
+	}
+	if time.Now().After(expiration) {
+		return fmt.Errorf("verification code has expired")
+	}
+	_, err = service.DB.Exec("DELETE from verification WHERE account = ?", account)
+	if err != nil {
+		log.Error("failed to delete used verification codes", "err", err)
+		return err
+	}
+	return nil
+}
+
+// Marks the account as verified
+func (service *EmailService) MarkAccountAsVerified(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET verified = 1 WHERE id = ?", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to add verification code")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
 }

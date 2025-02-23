@@ -50,14 +50,25 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Optionally sending a verification email
 	if os.Getenv("SMTP_ADDRESS") != "" {
 		// Generates a random code
-		code, err := utils.GenerateRandomCode()
+		code, err := utils.GenerateRandomCode(6)
 		if err != nil {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
+		// Sends a verification email
 		if err := handler.ES.SendVerificationEmail(account.Email, code); err != nil {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 			return
+		}
+		// Getting account id by email
+		account, err = handler.AS.GetAccountByEmail(account.Email)
+		if err != nil {
+			utils.Response(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		// Adds the code to the database
+		if err := handler.ES.AddVerificationCode(code, account.ID); err != nil {
+			utils.Response(w, http.StatusInternalServerError, "internal server error")
 		}
 	}
 	// Sending a response
@@ -79,12 +90,12 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Getting the account
 	account, err := handler.AS.GetAccountByEmail(payload.Email)
 	if err != nil {
-		utils.Response(w, http.StatusBadRequest, "wrong email")
+		utils.Response(w, http.StatusUnauthorized, "wrong email or password")
 		return
 	}
 	// Comparing passwords
 	if !utils.CompareHashedAndPlain(account.Password, payload.Password) {
-		utils.Response(w, http.StatusBadRequest, "wrong password")
+		utils.Response(w, http.StatusUnauthorized, "wrong email or password")
 		return
 	}
 	// Generating a new jwt token providing access to protected routes for some time
@@ -94,7 +105,7 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"exp":     expiration.Unix(),
 	})
 	if err != nil {
-		utils.Response(w, http.StatusInternalServerError, "failes to generate jwt")
+		utils.Response(w, http.StatusInternalServerError, "failed to generate jwt")
 		return
 	}
 	// Setting the jwt token as a secure httponly cookie
@@ -112,6 +123,40 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	utils.Response(w, http.StatusOK, response)
 }
 
-func (handlers *AuthHandler) Verification(w http.ResponseWriter, r *http.Request) {
-
+func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request) {
+	// Creating a payload
+	var payload types.PayloadVerification
+	// Unmarshaling payload
+	if err := utils.Unmarshal(w, r, &payload); err != nil {
+		return
+	}
+	// Validating payload
+	if err := utils.Validate(w, r, &payload); err != nil {
+		return
+	}
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
+	if err != nil {
+		if err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Comparing verification codes
+	if err := handler.ES.CompareVerificationCode(payload.Code, id); err != nil {
+		if err.Error() == "invalid verification code" || err.Error() == "verification code expired" {
+			utils.Response(w, http.StatusUnauthorized, "wrong verification code")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Marking account as verified
+	if err := handler.ES.MarkAccountAsVerified(id); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	utils.Response(w, http.StatusOK, "verified")
 }

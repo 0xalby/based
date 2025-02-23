@@ -1,11 +1,9 @@
 # TODO
-* Email service
+* Commenting
+* UpdateAccountEmail email verification then sending a notification
+* Account recovery
 * TOTP service
-* Accounts handler
-* Authorization handler
 * Add sample email templates
-## Handlers
-* Authorization
 ## Adding more SQL databases support
 * Orable
 * MySQL and MariaDB

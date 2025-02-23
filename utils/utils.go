@@ -83,7 +83,7 @@ func Request(method string, headers map[string]string, endpoint string, payload 
 	return resp, nil
 }
 
-// Claims the account's ID from the request
+// Claims the account's id from the request
 func ContextClaimID(r *http.Request) (int, error) {
 	_, claims, err := jwtauth.FromContext(r.Context())
 	if err != nil {
@@ -92,8 +92,8 @@ func ContextClaimID(r *http.Request) (int, error) {
 	}
 	id, ok := claims["account"].(float64)
 	if !ok {
-		log.Error("account not found in claims or not a float64")
-		return 0, err
+		log.Warn("account not found in claims or not a float64")
+		return 0, fmt.Errorf("account not found in claims or not a float64")
 	}
 	return int(id), nil
 }
@@ -114,10 +114,10 @@ func CompareHashedAndPlain(hashed, plain string) bool {
 }
 
 // Generates a random 6 six digit code
-func GenerateRandomCode() (string, error) {
+func GenerateRandomCode(lenght int) (string, error) {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	code := make([]byte, 6)
+	code := make([]byte, lenght)
 	for i := range code {
 		code[i] = charset[seededRand.Intn(len(charset))]
 	}

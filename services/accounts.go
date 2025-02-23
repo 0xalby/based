@@ -13,6 +13,7 @@ type AccountsService struct {
 	DB *sql.DB
 }
 
+// Creates an account in the database
 func (service *AccountsService) CreateAccount(account *types.Account) error {
 	// Executing on the database
 	rows, err := service.DB.Exec("INSERT INTO accounts (email, password) VALUES (?,?)", account.Email, account.Password)
@@ -38,6 +39,7 @@ func (service *AccountsService) CreateAccount(account *types.Account) error {
 	return nil
 }
 
+// Updates account email in the database
 func (service *AccountsService) UpdateAccountEmail(id int, new, old string) error {
 	rows, err := service.DB.Exec("UPDATE accounts SET email = ? WHERE email = ? AND id = ?", new, old, id)
 	if err != nil {
@@ -56,6 +58,7 @@ func (service *AccountsService) UpdateAccountEmail(id int, new, old string) erro
 	return nil
 }
 
+// Updates account password in the database
 func (service *AccountsService) UpdateAccountPassword(id int, new, old string) error {
 	rows, err := service.DB.Exec("UPDATE accounts SET password = ? WHERE password = ? AND id = ?", new, old, id)
 	if err != nil {
@@ -74,6 +77,7 @@ func (service *AccountsService) UpdateAccountPassword(id int, new, old string) e
 	return nil
 }
 
+// Deletes an account in the database
 func (service *AccountsService) DeleteAccount(id int) error {
 	rows, err := service.DB.Exec("DELETE FROM accounts WHERE id = ?", id)
 	if err != nil {
@@ -113,7 +117,6 @@ func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 		return nil, err
 	}
 	if account == nil || account.ID == 0 {
-		log.Error("account doesn't exists")
 		return nil, fmt.Errorf("account doesn't exists")
 	}
 	return account, nil
