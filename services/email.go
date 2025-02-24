@@ -85,12 +85,18 @@ type verification struct {
 }
 
 // Sends an account recovery email
-func (service *EmailService) SendRecoveryEmail(email string) error {
-	data := recovery{}
+func (service *EmailService) SendRecoveryEmail(email, code string) error {
+	data := recovery{
+		Recipient: email,
+		Code:      code,
+	}
 	return service.SendEmail(email, "Account Recovery", "templates/recovery.html", data)
 }
 
-type recovery struct{}
+type recovery struct {
+	Recipient string
+	Code      string
+}
 
 // Sends a notification email
 func (service *EmailService) SendNotificationEmail(email, subject, message string) error {
@@ -144,7 +150,7 @@ func (service *EmailService) CompareCodes(code string, account int) error {
 	if time.Now().After(expiration) {
 		return fmt.Errorf("verification or confirmation code has expired")
 	}
-	_, err = service.DB.Exec("DELETE FROM codes WHERE account = ?", account)
+	_, err = service.DB.Exec("UPDATE codes SET code = ? WHERE code = ? AND account = ?", "", code, account)
 	if err != nil {
 		log.Error("failed to delete used verification codes", "err", err)
 		return err
@@ -152,9 +158,9 @@ func (service *EmailService) CompareCodes(code string, account int) error {
 	return nil
 }
 
-// Marks the account as verified
-func (service *EmailService) MarkAccountAsVerified(id int) error {
-	rows, err := service.DB.Exec("UPDATE accounts SET verified = 1 WHERE id = ?", id)
+// Saves recovery code before usage
+func (service *EmailService) SaveRecoveryCode(code string, id int) error {
+	rows, err := service.DB.Exec("UPDATE codes SET recovery = ? WHERE id = ?", code, id)
 	if err != nil {
 		// Checking for affected rows
 		affected, err := rows.RowsAffected()
@@ -163,7 +169,7 @@ func (service *EmailService) MarkAccountAsVerified(id int) error {
 			return err
 		}
 		if affected == 0 {
-			log.Error("failed to add verification code")
+			log.Error("failed to add recovery code")
 			return fmt.Errorf("no rows affected")
 		}
 		log.Error("failed to database update", "err", err)
@@ -172,40 +178,21 @@ func (service *EmailService) MarkAccountAsVerified(id int) error {
 	return nil
 }
 
-// Saves pending email before confirmation
-func (service *EmailService) SavePending(email string, account int) error {
-	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", email, account)
+// Compares the stored and the inputted recovery codes
+func (service *EmailService) CompareRecoveryCodes(code string, account int) error {
+	var storedCode string
+	err := service.DB.QueryRow("SELECT recovery FROM codes WHERE account = ? AND recovery = ?", account, code).
+		Scan(&storedCode)
 	if err != nil {
-		// Checking for affected rows
-		affected, err := rows.RowsAffected()
-		if err != nil {
-			log.Error("failed to get affacted rows", "err", err)
-			return err
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("invalid recovery code")
 		}
-		if affected == 0 {
-			log.Error("failed to add pending email")
-			return fmt.Errorf("no rows affected")
-		}
-		log.Error("failed to database update", "err", err)
+		log.Error("failed to database select", "err", err)
 		return err
 	}
-	return nil
-}
-
-func (service *EmailService) CleanPendingEmail(id int) error {
-	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", "", id)
+	_, err = service.DB.Exec("UPDATE codes SET recovery = ? WHERE account = ?", "", account)
 	if err != nil {
-		// Checking for affected rows
-		affected, err := rows.RowsAffected()
-		if err != nil {
-			log.Error("failed to get affacted rows", "err", err)
-			return err
-		}
-		if affected == 0 {
-			log.Error("failed to clean pending email")
-			return fmt.Errorf("no rows affected")
-		}
-		log.Error("failed to database update", "err", err)
+		log.Error("failed to delete used recovery code", "err", err)
 		return err
 	}
 	return nil

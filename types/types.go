@@ -41,7 +41,14 @@ type PayloadAccountUpdatePassword struct {
 	Old string `json:"old" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 	New string `json:"new" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }
-type PayloadAccountRecovery struct{}
+type PayloadAccountRecovery struct {
+	Email string `json:"email" validate:"required,email"`
+}
+type PayloadAccountReset struct {
+	Code     string `json:"code" validate:"required,len=6,ascii"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
+}
 type PayloadAccountDelete struct {
 	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }

@@ -113,7 +113,7 @@ func CompareHashedAndPlain(hashed, plain string) bool {
 	return err == nil
 }
 
-// Generates a random 6 six digit code
+// Generating a random 6 six digit code
 func GenerateRandomCode(lenght int) (string, error) {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))

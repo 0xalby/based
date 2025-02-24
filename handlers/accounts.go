@@ -25,7 +25,7 @@ func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Generates a random code
+	// Generating a random code
 	code, err := utils.GenerateRandomCode(6)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -46,7 +46,7 @@ func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 	}
 	// Saving pending email
-	if err := handler.ES.SavePending(payload.Email, id); err != nil {
+	if err := handler.AS.SavePending(payload.Email, id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -100,7 +100,7 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// Clean pending email
-	if err := handler.ES.CleanPendingEmail(id); err != nil {
+	if err := handler.AS.CleanPendingEmail(id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -215,4 +215,87 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 		return
 	}
 	utils.Response(w, http.StatusOK, "deleted")
+}
+
+func (handler *AccountsHandler) Recovery(w http.ResponseWriter, r *http.Request) {
+	// Creating a payload
+	var payload types.PayloadAccountRecovery
+	// Unmarshaling payload
+	if err := utils.Unmarshal(w, r, &payload); err != nil {
+		return
+	}
+	// Validating payload
+	if err := utils.Validate(w, r, &payload); err != nil {
+		return
+	}
+	// Getting account by email
+	account, err := handler.AS.GetAccountByEmail(payload.Email)
+	if err != nil {
+		if err.Error() == "account doesn't exists" {
+			utils.Response(w, http.StatusBadRequest, "account not existing")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Generating a random code
+	code, err := utils.GenerateRandomCode(6)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Saving recovery code
+	if err := handler.ES.SaveRecoveryCode(code, account.ID); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Sending a recovery email with the code
+	if err := handler.ES.SendRecoveryEmail(account.Email, code); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+	}
+	utils.Response(w, http.StatusOK, "recovery email sent")
+}
+
+func (handler *AccountsHandler) Reset(w http.ResponseWriter, r *http.Request) {
+	// Creating a payload
+	var payload types.PayloadAccountReset
+	// Unmarshaling payload
+	if err := utils.Unmarshal(w, r, &payload); err != nil {
+		return
+	}
+	// Validating payload
+	if err := utils.Validate(w, r, &payload); err != nil {
+		return
+	}
+	// Getting account by email
+	account, err := handler.AS.GetAccountByEmail(payload.Email)
+	if err != nil {
+		if err.Error() == "account doesn't exists" {
+			utils.Response(w, http.StatusBadRequest, "account not existing")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Comparing recovery codes
+	if err := handler.ES.CompareRecoveryCodes(payload.Code, account.ID); err != nil {
+		if err.Error() == "invalid recovery code" { // || err.Error() == "recovery code expired"
+			utils.Response(w, http.StatusUnauthorized, "invalid recovery code")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Hashes the new password
+	hashed, err := utils.Hash(payload.Password)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	// Resetting the password
+	if err := handler.AS.UpdateAccountPassword(hashed, account.ID); err != nil {
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	utils.Response(w, http.StatusOK, "recovered")
 }

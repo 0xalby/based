@@ -96,6 +96,7 @@ func (service *AccountsService) DeleteAccount(id int) error {
 	return nil
 }
 
+// Gets an account by id
 func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 	// Querying the database
 	rows, err := service.DB.Query("SELECT * FROM accounts WHERE id = ?", id)
@@ -122,6 +123,7 @@ func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 	return account, nil
 }
 
+// Gets an account by email
 func (service *AccountsService) GetAccountByEmail(email string) (*types.Account, error) {
 	// Querying the database
 	rows, err := service.DB.Query("SELECT * FROM accounts WHERE email = ?", email)
@@ -147,6 +149,65 @@ func (service *AccountsService) GetAccountByEmail(email string) (*types.Account,
 		return nil, fmt.Errorf("account doesn't exists")
 	}
 	return account, nil
+}
+
+// Marks the account as verified
+func (service *AccountsService) MarkAccountAsVerified(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET verified = 1 WHERE id = ?", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to add verification code")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
+// Saves pending email before confirmation
+func (service *AccountsService) SavePending(email string, account int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", email, account)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to add pending email")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (service *AccountsService) CleanPendingEmail(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET pending = ? WHERE id = ?", "", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to clean pending email")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
 }
 
 // Scans accounts's table rows

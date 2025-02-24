@@ -49,7 +49,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	// Optionally sending a verification email
 	if os.Getenv("SMTP_ADDRESS") != "" {
-		// Generates a random code
+		// Generating a random code
 		code, err := utils.GenerateRandomCode(6)
 		if err != nil {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -63,6 +63,10 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		// Getting account by email
 		account, err = handler.AS.GetAccountByEmail(account.Email)
 		if err != nil {
+			if err.Error() == "account doesn't exists" {
+				utils.Response(w, http.StatusBadRequest, "account not existing")
+				return
+			}
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
@@ -90,7 +94,11 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Getting the account
 	account, err := handler.AS.GetAccountByEmail(payload.Email)
 	if err != nil {
-		utils.Response(w, http.StatusUnauthorized, "wrong email or password")
+		if err.Error() == "account doesn't exists" {
+			utils.Response(w, http.StatusBadRequest, "account not existing")
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	// Comparing passwords
@@ -165,7 +173,7 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Marking account as verified
-	if err := handler.ES.MarkAccountAsVerified(id); err != nil {
+	if err := handler.AS.MarkAccountAsVerified(id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
