@@ -1,17 +1,9 @@
-# Build stage
-FROM golang:latest AS builder
-RUN apk update && apk add --no-cache git
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
+FROM golang:latest
+WORKDIR /base
 COPY . .
-RUN go build -o bin/base -ldflags="-s -w"
-# Final stage
-FROM alpine:latest
-RUN addgroup -S base && adduser -S base -G base
-WORKDIR /app
-COPY --from=builder /app/bin/base /app/bin/base
-RUN chown -R base:base /app
+RUN go mod download
+RUN go build -o bin/base -ldflags="-s -w" .
 EXPOSE 16000
+RUN useradd base
 USER base
-CMD ["/app/bin/base"]
+CMD ["./bin/base"]

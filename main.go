@@ -16,6 +16,7 @@ import (
 	"github.com/0xalby/base/services"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
+	chiddlware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/joho/godotenv"
@@ -109,8 +110,12 @@ func (server *API) Run() error {
 	// Creating handlers
 	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService}
 	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService}
+	// Using the real ip middleware
+	subrouter.Use(chiddlware.RealIP)
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
+	// Using the security headers middleware
+	subrouter.Use(middleware.Headers)
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)

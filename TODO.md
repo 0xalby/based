@@ -1,5 +1,4 @@
 # TODO
-* Review and first audit
 * Account recovery
 * TOTP service
 * Add sample email templates
