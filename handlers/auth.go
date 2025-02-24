@@ -46,6 +46,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
+		return
 	}
 	// Optionally sending a verification email
 	if os.Getenv("SMTP_ADDRESS") != "" {
@@ -70,7 +71,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
-		// Adds the code to the database
+		// Adding the verification code to the database
 		if err := handler.ES.AddVerificationCode(code, account.ID); err != nil {
 			utils.Response(w, http.StatusInternalServerError, "internal server error")
 		}
@@ -142,11 +143,11 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Claiming the account id from request context
-	id, err := utils.ContextClaimID(r)
+	// Getting account id by code ownership
+	id, err := handler.ES.GetAccountIDByCodeOwnership(payload.Code)
 	if err != nil {
-		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
-			utils.Response(w, http.StatusUnauthorized, "invalid token")
+		if err.Error() == "invalid or expired code" {
+			utils.Response(w, http.StatusBadRequest, "invalid or expired code")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
@@ -164,8 +165,8 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Comparing verification codes
-	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
-		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code expired" {
+	if err := handler.ES.CompareCodes(payload.Code, account.ID); err != nil {
+		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code has expired" {
 			utils.Response(w, http.StatusUnauthorized, "invalid verification code")
 			return
 		}
@@ -173,7 +174,7 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Marking account as verified
-	if err := handler.AS.MarkAccountAsVerified(id); err != nil {
+	if err := handler.AS.MarkAccountAsVerified(account.ID); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}

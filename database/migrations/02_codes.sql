@@ -2,10 +2,10 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS codes (
   `id` INTEGER NOT NULL PRIMARY KEY,
-  `code` VARCHAR(255) NOT NULL,
+  `code` VARCHAR(255) NOT NULL DEFAULT "",
   `recovery` VARCHAR(255) NOT NULL DEFAULT "",
-  `account` INTEGER NOT NULL, 
   `expiration` TIMESTAMP NOT NULL,
+  `account` INTEGER NOT NULL, 
   FOREIGN KEY (account) REFERENCES accounts(id)
 );
 -- +goose StatementEnd

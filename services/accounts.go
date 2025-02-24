@@ -113,12 +113,12 @@ func (service *AccountsService) GetAccountByID(id int) (*types.Account, error) {
 			return nil, err
 		}
 	}
-	if err = rows.Err(); err != nil {
-		log.Error("failed interating rows", "err", err)
-		return nil, err
-	}
 	if account == nil || account.ID == 0 {
-		return nil, fmt.Errorf("account doesn't exists")
+		return nil, fmt.Errorf("account doesn't exist")
+	}
+	if err = rows.Err(); err != nil {
+		log.Error("failed iterating rows", "err", err)
+		return nil, err
 	}
 	return account, nil
 }

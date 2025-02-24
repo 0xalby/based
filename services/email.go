@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"os"
@@ -112,11 +113,26 @@ type notification struct {
 	Message   string
 }
 
+// Gets an account by code ownership
+func (service *EmailService) GetAccountIDByCodeOwnership(code string) (int, error) {
+	var account int
+	err := service.DB.QueryRow("SELECT account FROM codes WHERE code = ? OR recovery = ?", code, code).
+		Scan(&account)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, errors.New("invalid or expired code")
+		}
+		log.Error("failed to query database", "err", err)
+		return 0, err
+	}
+	return account, nil
+}
+
 // Adds the verification code to the database
 func (service *EmailService) AddVerificationCode(code string, account int) error {
 	// Executing on the database
 	expiration := time.Now().Add(15 * time.Minute) // expires in 15 minutes
-	rows, err := service.DB.Exec("INSERT INTO codes (code, account, expiration) VALUES (?,?,?)", code, account, expiration)
+	rows, err := service.DB.Exec("INSERT INTO codes (code, expiration, account) VALUES (?,?,?)", code, expiration, account)
 	if err != nil {
 		log.Error("failed to database insert", "err", err)
 		return err
@@ -136,9 +152,11 @@ func (service *EmailService) AddVerificationCode(code string, account int) error
 
 // Compares the stored and the inputted verification codes
 func (service *EmailService) CompareCodes(code string, account int) error {
-	var storedCode string
-	var expiration time.Time
-	err := service.DB.QueryRow("SELECT code, expiration FROM codes WHERE account = ? AND code = ?", account, code).
+	var (
+		storedCode string
+		expiration time.Time
+	)
+	err := service.DB.QueryRow("SELECT code, expiration FROM codes WHERE code = ? AND account = ?", code, account).
 		Scan(&storedCode, &expiration)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -150,39 +168,44 @@ func (service *EmailService) CompareCodes(code string, account int) error {
 	if time.Now().After(expiration) {
 		return fmt.Errorf("verification or confirmation code has expired")
 	}
-	_, err = service.DB.Exec("UPDATE codes SET code = ? WHERE code = ? AND account = ?", "", code, account)
+	_, err = service.DB.Exec("DELETE FROM codes WHERE account = ?", account)
 	if err != nil {
-		log.Error("failed to delete used verification codes", "err", err)
+		log.Error("failed to delete used codes", "err", err)
 		return err
 	}
 	return nil
 }
 
-// Saves recovery code before usage
-func (service *EmailService) SaveRecoveryCode(code string, id int) error {
-	rows, err := service.DB.Exec("UPDATE codes SET recovery = ? WHERE id = ?", code, id)
+// Adds the recovery code to the database
+func (service *EmailService) AddRecoveryCode(code string, account int) error {
+	// Executing on the database
+	expiration := time.Now().Add(15 * time.Minute) // expires in 15 minutes
+	rows, err := service.DB.Exec("INSERT INTO codes (recovery, expiration, account) VALUES (?,?,?)", code, expiration, account)
 	if err != nil {
-		// Checking for affected rows
-		affected, err := rows.RowsAffected()
-		if err != nil {
-			log.Error("failed to get affacted rows", "err", err)
-			return err
-		}
-		if affected == 0 {
-			log.Error("failed to add recovery code")
-			return fmt.Errorf("no rows affected")
-		}
-		log.Error("failed to database update", "err", err)
+		log.Error("failed to database insert", "err", err)
 		return err
+	}
+	// Checking for affected rows
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to add recovery code")
+		return fmt.Errorf("no rows affected")
 	}
 	return nil
 }
 
 // Compares the stored and the inputted recovery codes
 func (service *EmailService) CompareRecoveryCodes(code string, account int) error {
-	var storedCode string
-	err := service.DB.QueryRow("SELECT recovery FROM codes WHERE account = ? AND recovery = ?", account, code).
-		Scan(&storedCode)
+	var (
+		storedCode string
+		expiration time.Time
+	)
+	err := service.DB.QueryRow("SELECT recovery, expiration FROM codes WHERE recovery = ? AND account = ?", code, account).
+		Scan(&storedCode, &expiration)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("invalid recovery code")
@@ -190,9 +213,12 @@ func (service *EmailService) CompareRecoveryCodes(code string, account int) erro
 		log.Error("failed to database select", "err", err)
 		return err
 	}
-	_, err = service.DB.Exec("UPDATE codes SET recovery = ? WHERE account = ?", "", account)
+	if time.Now().After(expiration) {
+		return fmt.Errorf("recovery code has expired")
+	}
+	_, err = service.DB.Exec("DELETE FROM codes WHERE account = ?", account)
 	if err != nil {
-		log.Error("failed to delete used recovery code", "err", err)
+		log.Error("failed to delete used codes", "err", err)
 		return err
 	}
 	return nil

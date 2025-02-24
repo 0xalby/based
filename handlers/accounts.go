@@ -87,7 +87,7 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 	}
 	// Comparing confirmation codes
 	if err := handler.ES.CompareCodes(payload.Code, id); err != nil {
-		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code expired" {
+		if err.Error() == "invalid verification or confirmation code" || err.Error() == "verification or confirmation code has expired" {
 			utils.Response(w, http.StatusUnauthorized, "invalid confirmation code")
 			return
 		}
@@ -106,6 +106,11 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 	}
 	/* Optionally send email notification */
 	if os.Getenv("SMTP_ADDRESS") != "" {
+		// Sending a notification email
+		if err := handler.ES.SendNotificationEmail(account.Pending, "Updated email address", "Your email address has been updated"); err != nil {
+			utils.Response(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
 	}
 	// Sending a response
 	utils.Response(w, http.StatusOK, "updated")
@@ -201,6 +206,10 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 	// Getting the account
 	account, err := handler.AS.GetAccountByID(id)
 	if err != nil {
+		if err.Error() == "account doesn't exist" {
+			utils.Response(w, http.StatusUnauthorized, "account doesn't exist")
+			return
+		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -244,8 +253,8 @@ func (handler *AccountsHandler) Recovery(w http.ResponseWriter, r *http.Request)
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	// Saving recovery code
-	if err := handler.ES.SaveRecoveryCode(code, account.ID); err != nil {
+	// Adding the recovery code to the database
+	if err := handler.ES.AddRecoveryCode(code, account.ID); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -267,19 +276,19 @@ func (handler *AccountsHandler) Reset(w http.ResponseWriter, r *http.Request) {
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Getting account by email
-	account, err := handler.AS.GetAccountByEmail(payload.Email)
+	// Getting account by code ownership
+	id, err := handler.ES.GetAccountIDByCodeOwnership(payload.Code)
 	if err != nil {
-		if err.Error() == "account doesn't exists" {
-			utils.Response(w, http.StatusBadRequest, "account not existing")
+		if err.Error() == "invalid or expired code" {
+			utils.Response(w, http.StatusBadRequest, "invalid or expired code")
 			return
 		}
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	// Comparing recovery codes
-	if err := handler.ES.CompareRecoveryCodes(payload.Code, account.ID); err != nil {
-		if err.Error() == "invalid recovery code" { // || err.Error() == "recovery code expired"
+	if err := handler.ES.CompareRecoveryCodes(payload.Code, id); err != nil {
+		if err.Error() == "invalid recovery code" || err.Error() == "recovery code expired" {
 			utils.Response(w, http.StatusUnauthorized, "invalid recovery code")
 			return
 		}
@@ -293,7 +302,7 @@ func (handler *AccountsHandler) Reset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Resetting the password
-	if err := handler.AS.UpdateAccountPassword(hashed, account.ID); err != nil {
+	if err := handler.AS.UpdateAccountPassword(hashed, id); err != nil {
 		utils.Response(w, http.StatusInternalServerError, "internal server error")
 		return
 	}

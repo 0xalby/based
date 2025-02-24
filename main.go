@@ -121,9 +121,7 @@ func (server *API) Run() error {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
 		if os.Getenv("SMTP_ADDRESS") != "" {
-			r.With(jwtauth.Verifier(config.TokenAuth)).
-				With(jwtauth.Authenticator(config.TokenAuth)).
-				With(httprate.LimitByIP(5, time.Hour*24)).
+			r.With(httprate.LimitByIP(5, time.Hour*24)).
 				Post("/verification", authHandler.Verification)
 		}
 		r.Route("/totp", func(r chi.Router) {
@@ -140,16 +138,20 @@ func (server *API) Run() error {
 			r.Use(jwtauth.Verifier(config.TokenAuth))
 			r.Use(jwtauth.Authenticator(config.TokenAuth))
 			r.Use(middleware.Verified(authHandler))
-			r.With(httprate.LimitByIP(5, 24*time.Hour)).
-				Get("/confirmation", accountHandler.SendConfirmationEmail)
+			if os.Getenv("SMTP_ADDRESS") != "" {
+				r.With(httprate.LimitByIP(5, 24*time.Hour)).
+					Get("/confirmation", accountHandler.SendConfirmationEmail)
+			}
 			r.Put("/update/email", accountHandler.UpdateEmail)
 			r.Put("/update/password", accountHandler.UpdatePassword)
 			r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})
 			r.Delete("/delete", accountHandler.DeleteAccount)
 		})
-		r.With(httprate.LimitByIP(5, 24*time.Hour)).
-			Get("/recovery", accountHandler.Recovery)
-		r.Post("/reset", accountHandler.Reset)
+		if os.Getenv("SMTP_ADDRESS") != "" {
+			r.With(httprate.LimitByIP(5, 24*time.Hour)).
+				Get("/recovery", accountHandler.Recovery)
+			r.Post("/reset", accountHandler.Reset)
+		}
 	})
 	// Listening
 	logger.Printf("running on %s", server.addr)

@@ -46,7 +46,6 @@ type PayloadAccountRecovery struct {
 }
 type PayloadAccountReset struct {
 	Code     string `json:"code" validate:"required,len=6,ascii"`
-	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
 }
 type PayloadAccountDelete struct {

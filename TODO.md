@@ -1,6 +1,11 @@
 # TODO
+* Email errors
+* Create the /resend endpoint with ResendVerificationCode() for email verification
+* Review
+* Audit
 * TOTP service
 * Add sample email templates
+* Write the README with a feature list section going over the files
 ## Adding more SQL databases support
 * MySQL and MariaDB
 * Oracle
