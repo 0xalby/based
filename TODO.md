@@ -1,6 +1,5 @@
 # TODO
-* Create the /resend endpoint with ResendVerificationCode() for email verification
-* TOTP service
+* Generate TOTP backup codes
 * Add sample email templates
 * Review and audit once more
 * Write the README with a feature list section going over the files

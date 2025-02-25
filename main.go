@@ -106,10 +106,10 @@ func (server *API) Run() error {
 	// Creating services
 	accountService := &services.AccountsService{DB: server.db}
 	emailService := &services.EmailService{FS: templateFS, DB: server.db}
-	// totpService := &services.TotpService{DB: server.db}
+	totpService := &services.TotpService{DB: server.db}
 	// Creating handlers
-	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService}
-	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService}
+	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService, TS: totpService}
+	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService, TS: totpService}
 	// Using the real ip middleware
 	subrouter.Use(chiddlware.RealIP)
 	// Using the logger middleware
@@ -126,14 +126,10 @@ func (server *API) Run() error {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).
 				Post("/resend", authHandler.ResendVerification)
 		}
-		r.Route("/totp", func(r chi.Router) {
-			r.Use(jwtauth.Verifier(config.TokenAuth))
-			r.Use(jwtauth.Authenticator(config.TokenAuth))
-			r.Use(middleware.Verified(authHandler))
-			r.Post("/generate", func(w http.ResponseWriter, r *http.Request) {})
-			r.Post("/code", func(w http.ResponseWriter, r *http.Request) {})
-			r.Post("/backup", func(w http.ResponseWriter, r *http.Request) {})
-		})
+		r.With(jwtauth.Verifier(config.TokenAuth)).
+			With(jwtauth.Authenticator(config.TokenAuth)).
+			With(middleware.Verified(authHandler)).
+			Post("/backup", func(w http.ResponseWriter, r *http.Request) {})
 	})
 	subrouter.Route("/account", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
@@ -146,7 +142,8 @@ func (server *API) Run() error {
 			}
 			r.Put("/update/email", accountHandler.UpdateEmail)
 			r.Put("/update/password", accountHandler.UpdatePassword)
-			r.Put("/update/totp", func(w http.ResponseWriter, r *http.Request) {})
+			r.Put("/totp/enable", accountHandler.AccountEnableTOTP)
+			r.Put("/totp/disable", accountHandler.AccountDisableTOTP)
 			r.Delete("/delete", accountHandler.DeleteAccount)
 		})
 		if os.Getenv("SMTP_ADDRESS") != "" {

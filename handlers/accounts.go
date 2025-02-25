@@ -12,6 +12,7 @@ import (
 type AccountsHandler struct {
 	AS *services.AccountsService
 	ES *services.EmailService
+	TS *services.TotpService
 }
 
 func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *http.Request) {
@@ -408,5 +409,84 @@ func (handler *AccountsHandler) Reset(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.Response(w, http.StatusOK,
 		map[string]interface{}{"message": "recovered", "status": http.StatusOK},
+	)
+}
+
+func (handler *AccountsHandler) AccountEnableTOTP(w http.ResponseWriter, r *http.Request) {
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
+	if err != nil {
+		if err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+			)
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Getting the account
+	account, err := handler.AS.GetAccountByID(id)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Generating a totp secret
+	key, err := handler.TS.GenerateTOTPSecret(account.Email, id)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "failed to generate totp secret", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Generating a qrcoode
+	qrCode, err := handler.TS.GenerateQRCode(key)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "failed to generate qrcode", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Enabling 2fa totp for the account
+	if err := handler.AS.EnableTOTP(id); err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	/* Base64 encoded png image */
+	utils.Response(w, http.StatusOK,
+		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "status": http.StatusOK},
+	)
+}
+
+func (handler *AccountsHandler) AccountDisableTOTP(w http.ResponseWriter, r *http.Request) {
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
+	if err != nil {
+		if err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+			)
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Disabling 2fa totp for the account
+	if err := handler.AS.DisableTOTP(id); err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	utils.Response(w, http.StatusOK,
+		map[string]interface{}{"message": "disabled", "status": http.StatusOK},
 	)
 }

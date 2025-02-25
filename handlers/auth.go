@@ -14,7 +14,7 @@ import (
 type AuthHandler struct {
 	AS *services.AccountsService
 	ES *services.EmailService
-	// TS *services.TotpService
+	TS *services.TotpService
 }
 
 func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Creating a payload
-	var payload types.PayloadRegister
+	var payload types.PayloadLogin
 	// Unmarshaling payload
 	if err := utils.Unmarshal(w, r, &payload); err != nil {
 		return
@@ -128,6 +128,23 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			map[string]interface{}{"message": "wrong email or password", "status": http.StatusUnauthorized},
 		)
 		return
+	}
+	/* TOTP requires two pages or one page including TOTP input for before sending the request */
+	// Asking for totp validation if the account has it enabled
+	if account.TotpEnabled {
+		valid, err := handler.TS.ValidateTOTP(account.ID, payload.TOTP)
+		if !valid {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "wrong totp code", "status": http.StatusUnauthorized},
+			)
+			return
+		}
+		if err != nil {
+			utils.Response(w, http.StatusInternalServerError,
+				map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+			)
+			return
+		}
 	}
 	// Generating a new jwt token providing access to protected routes for some time
 	expiration := time.Now().Add(time.Hour * 24 * 7)
@@ -222,10 +239,8 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 	)
 }
 
-/*
-This if for a user that tries to log in and cannot do anything because the email isn't verified but the first code send after registration expired.
-There will be a button for him/her to get a new one and send another email.
-*/
+/* There will likely be a button for him/her to get a new one and send another email. */
+// This if for a user that tries to log in and cannot do anything because the email isn't verified but the first code send after registration expired.
 func (handler *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)

@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   `pending` VARCHAR(255) NOT NULL DEFAULT "",
   `password` VARCHAR(255) NOT NULL,
   `verified` BOOLEAN NOT NULL DEFAULT 0, -- Verified true/false
-  `2fa` BOOLEAN NOT NULL DEFAULT 0, -- 2FA disabled/enabled
+  `totp` BOOLEAN NOT NULL DEFAULT 0, -- 2FA TOTP disabled/enabled
+  `secret` VARCHAR(255) NOT NULL DEFAULT "", -- TOTP secret
   `updated` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

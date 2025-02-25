@@ -10,6 +10,7 @@ type Account struct {
 	Password    string
 	Verified    bool
 	TotpEnabled bool
+	TotpSecret  string
 	Updated     time.Time
 	Created     time.Time
 }
@@ -21,16 +22,12 @@ type PayloadRegister struct {
 }
 type PayloadLogin struct {
 	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Password string `json:"password" validate:"required,min=12,max=128,containsany=!@#$%^&*"`
+	TOTP     string `json:"totp" validate:"omitempty"`
 }
 type PayloadVerification struct {
 	Code string `json:"code" validate:"required,len=6,ascii"`
 }
-type PayloadTotpGenerate struct{}
-type PayloadTotpCode struct {
-	Code string `json:"code" validate:"required,len=6,ascii"`
-}
-type PayloadTotpBackup struct{}
 type PayloadAccountSendConfirmationEmail struct {
 	Email string `json:"new" validate:"required,email"`
 }

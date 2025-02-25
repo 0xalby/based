@@ -212,6 +212,46 @@ func (service *AccountsService) CleanPendingEmail(id int) error {
 	return nil
 }
 
+// Enables 2fa totp for an account
+func (service *AccountsService) EnableTOTP(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET totp = 1 WHERE id = ?", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to enable or disable 2fa totp")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
+// Disables 2fa totp for an account
+func (service *AccountsService) DisableTOTP(id int) error {
+	rows, err := service.DB.Exec("UPDATE accounts SET totp = 0 WHERE id = ?", id)
+	if err != nil {
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to disable 2fa totp")
+			return fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to database update", "err", err)
+		return err
+	}
+	return nil
+}
+
 // Scans accounts's table rows
 func scanAccounts(row *sql.Rows) (*types.Account, error) {
 	var account types.Account
@@ -223,6 +263,7 @@ func scanAccounts(row *sql.Rows) (*types.Account, error) {
 		&account.Password,
 		&account.Verified,
 		&account.TotpEnabled,
+		&account.TotpSecret,
 		&account.Updated,
 		&account.Created,
 	)
