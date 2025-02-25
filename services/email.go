@@ -77,7 +77,7 @@ func (service *EmailService) SendVerificationEmail(email, code string) error {
 		Recipient: email,
 		Code:      code,
 	}
-	return service.SendEmail(email, "Email Verification", "templates/verification.html", data)
+	return service.SendEmail(email, "Email verification or account changes", "templates/verification.html", data)
 }
 
 type verification struct {

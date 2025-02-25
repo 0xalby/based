@@ -19,18 +19,36 @@ func Verified(handler *handlers.AuthHandler) func(http.Handler) http.Handler {
 			// Claiming the account id from request context
 			id, err := utils.ContextClaimID(r)
 			if err != nil {
-				utils.Response(w, http.StatusUnauthorized, "invalid token")
+				if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
+					utils.Response(w, http.StatusUnauthorized,
+						map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+					)
+					return
+				}
+				utils.Response(w, http.StatusInternalServerError,
+					map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+				)
 				return
 			}
 			// Getting the account
 			account, err := handler.AS.GetAccountByID(id)
 			if err != nil {
-				utils.Response(w, http.StatusInternalServerError, "internal server error")
+				if err.Error() == "account doesn't exist" {
+					utils.Response(w, http.StatusBadRequest,
+						map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest},
+					)
+					return
+				}
+				utils.Response(w, http.StatusInternalServerError,
+					map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+				)
 				return
 			}
 			// Checking for email verification
 			if !account.Verified {
-				utils.Response(w, http.StatusForbidden, "email not verified")
+				utils.Response(w, http.StatusForbidden,
+					map[string]interface{}{"message": "email not verified", "status": http.StatusForbidden},
+				)
 				return
 			}
 			ctx := context.WithValue(r.Context(), userKey, account)

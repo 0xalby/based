@@ -123,6 +123,8 @@ func (server *API) Run() error {
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).
 				Post("/verification", authHandler.Verification)
+			r.With(httprate.LimitByIP(5, time.Hour*24)).
+				Post("/resend", authHandler.ResendVerification)
 		}
 		r.Route("/totp", func(r chi.Router) {
 			r.Use(jwtauth.Verifier(config.TokenAuth))

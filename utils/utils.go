@@ -19,13 +19,13 @@ import (
 func Unmarshal(w http.ResponseWriter, r *http.Request, payload any) error {
 	// Checks for an empty payload
 	if r.Body == nil {
-		Response(w, http.StatusBadRequest, "empty request body")
+		Response(w, http.StatusBadRequest, map[string]interface{}{"message": "empty request body", "status": http.StatusBadRequest})
 		return fmt.Errorf("empty request")
 	}
 	// Decoding the payload
 	err := json.NewDecoder(r.Body).Decode(payload)
 	if err != nil {
-		Response(w, http.StatusBadRequest, "invalid request body")
+		Response(w, http.StatusBadRequest, map[string]interface{}{"message": "invalid request body", "status": http.StatusBadRequest})
 		return err
 	}
 	return nil
@@ -38,7 +38,7 @@ var Validator = validator.New(validator.WithRequiredStructEnabled())
 func Validate(w http.ResponseWriter, r *http.Request, payload any) error {
 	if err := Validator.Struct(payload); err != nil {
 		if verrs := err.(validator.ValidationErrors); verrs != nil {
-			Response(w, http.StatusBadRequest, "failed to validate request body"+verrs.Error())
+			Response(w, http.StatusBadRequest, map[string]interface{}{"message": "failed to validate one or more request body fields", "error": verrs.Error(), "status": http.StatusBadRequest})
 			return errors.New(verrs.Error())
 		}
 	}
