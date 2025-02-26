@@ -223,3 +223,22 @@ func (service *EmailService) CompareRecoveryCodes(code string, account int) erro
 	}
 	return nil
 }
+
+// Deletes the account codes
+func (service *EmailService) DeleteCodes(account int) error {
+	rows, err := service.DB.Exec("DELETE FROM codes WHERE account = ?", account)
+	if err != nil {
+		log.Error("failed to delete codes", "err", err)
+		return err
+	}
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to delete codes")
+		return fmt.Errorf("no rows affected")
+	}
+	return nil
+}

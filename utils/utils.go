@@ -48,6 +48,11 @@ func Validate(w http.ResponseWriter, r *http.Request, payload any) error {
 // Sends a response
 func Response(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
+	// Set security headers
+	w.Header().Set("Content-Security-Policy", "default-src 'self'")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
 	// Adding the http status as an header
 	w.WriteHeader(status)
 	// Encoding the payload

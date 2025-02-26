@@ -293,12 +293,30 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 		)
 		return
 	}
-	// Deleting the user from the database
+	// Deleting the account from the database
 	if err := handler.AS.DeleteAccount(id); err != nil {
 		utils.Response(w, http.StatusInternalServerError,
 			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
 		)
 		return
+	}
+	// Deleting left over account codes
+	if err := handler.ES.DeleteCodes(id); err != nil {
+		if err.Error() != "no rows affected" {
+			utils.Response(w, http.StatusInternalServerError,
+				map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+			)
+		}
+	}
+	/* Optionally send email notification */
+	if os.Getenv("SMTP_ADDRESS") != "" {
+		// Sending a notification email
+		if err := handler.ES.SendNotificationEmail(account.Pending, "Deleted account", "Your account has been deleted, goodbye"); err != nil {
+			utils.Response(w, http.StatusInternalServerError,
+				map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+			)
+			return
+		}
 	}
 	utils.Response(w, http.StatusOK,
 		map[string]interface{}{"message": "deleted", "status": http.StatusOK},

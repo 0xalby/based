@@ -114,11 +114,10 @@ func (server *API) Run() error {
 	subrouter.Use(chiddlware.RealIP)
 	// Using the logger middleware
 	subrouter.Use(middleware.Logger(*logger))
-	// Using the security headers middleware
-	subrouter.Use(middleware.Headers)
 	// Registering the routes
 	subrouter.Route("/auth", func(r chi.Router) {
-		r.Post("/register", authHandler.Register)
+		r.With(httprate.LimitByIP(20, time.Hour)).
+			Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).

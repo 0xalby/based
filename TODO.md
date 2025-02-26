@@ -3,6 +3,9 @@
 * Add sample email templates
 * Review and audit once more
 * Write the README with a feature list section going over the files
+## Features
+* CRUD operations rollback
+* Handlers context timeout
 ## Adding more SQL databases support
 * MySQL and MariaDB
 * Oracle
