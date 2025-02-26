@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// customWriter is a wrapper around http.ResponseWriter to capture status
+// Wrapper around http.ResponseWriter to capture status
 type customWriter struct {
 	http.ResponseWriter
 	statusCode int

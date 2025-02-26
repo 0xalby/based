@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS codes (
   `id` INTEGER NOT NULL PRIMARY KEY,
-  `code` VARCHAR(255) NOT NULL DEFAULT "",
+  `code` VARCHAR(6) NOT NULL DEFAULT "",
   `recovery` VARCHAR(255) NOT NULL DEFAULT "",
   `expiration` TIMESTAMP NOT NULL,
   `account` INTEGER NOT NULL, 

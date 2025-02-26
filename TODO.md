@@ -6,6 +6,7 @@
 ## Features
 * CRUD operations rollback
 * Handlers context timeout
+* Possible often used SQL tables indexing
 ## Adding more SQL databases support
 * MySQL and MariaDB
 * Oracle

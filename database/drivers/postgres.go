@@ -12,7 +12,7 @@ type DriverPostgres struct {
 	db *sql.DB
 }
 
-func (d *DriverPostgres) Connect(uri, user, password string) (*sql.DB, error) {
+func (d *DriverPostgres) MustConnect(uri, user, password string) (*sql.DB, error) {
 	// Constructing the connection string
 	connStr := fmt.Sprintf("postgres://%s:%s@%s", user, password, uri)
 	// Opening the connection

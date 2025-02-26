@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/0xalby/base/types"
 	"github.com/charmbracelet/log"
@@ -272,4 +273,24 @@ func scanAccounts(row *sql.Rows) (*types.Account, error) {
 		return nil, err
 	}
 	return &account, err
+}
+
+// Revokes jwt tokens
+func (service *AccountsService) RevokeToken(tokenID string, id int, expiration time.Time) error {
+	rows, err := service.DB.Exec("INSERT INTO blacklist (token, account, expiration) VALUES (?, ?, ?)", tokenID, id, expiration)
+	if err != nil {
+		log.Error("failed to database insert", "err", err)
+		return err
+	}
+	// Checking for affected rows
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affacted rows", "err", err)
+		return err
+	}
+	if affected == 0 {
+		log.Error("failed to revoke jwt token")
+		return fmt.Errorf("no rows affected")
+	}
+	return err
 }

@@ -103,6 +103,21 @@ func ContextClaimID(r *http.Request) (int, error) {
 	return int(id), nil
 }
 
+// Claims the jwt expiration from the request
+func ContextClaimExpiration(r *http.Request) (time.Time, error) {
+	_, claims, err := jwtauth.FromContext(r.Context())
+	if err != nil {
+		log.Error("failed to get claims", "err", err)
+		return time.Time{}, err
+	}
+	exp, ok := claims["exp"].(time.Time)
+	if !ok {
+		log.Warn("expiration not found in claims or not a float64")
+		return time.Time{}, fmt.Errorf("expiration not found in claims or not a float64")
+	}
+	return exp, nil
+}
+
 // Hashes a string
 func Hash(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

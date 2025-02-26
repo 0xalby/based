@@ -9,6 +9,8 @@ import (
 	"github.com/0xalby/base/services"
 	"github.com/0xalby/base/types"
 	"github.com/0xalby/base/utils"
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -151,6 +153,7 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	_, token, err := config.TokenAuth.Encode(map[string]interface{}{
 		"account": account.ID,
 		"exp":     expiration.Unix(),
+		"jti":     uuid.New().String(),
 	})
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError,
@@ -294,5 +297,79 @@ func (handler *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Re
 	}
 	utils.Response(w, http.StatusOK,
 		map[string]interface{}{"message": "verification email resent", "status": http.StatusOK},
+	)
+}
+
+func (handler *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
+	if err != nil {
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+			)
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Extracting the jwt token from the request
+	token, _, err := jwtauth.FromContext(r.Context())
+	if err != nil {
+		utils.Response(w, http.StatusUnauthorized,
+			map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+		)
+		return
+	}
+	// Getting the token id
+	tokenID := token.JwtID()
+	if tokenID == "" {
+		utils.Response(w, http.StatusUnauthorized,
+			map[string]interface{}{"message": "missing token id", "status": http.StatusUnauthorized},
+		)
+		return
+	}
+	// Claiming the jwt token expiration from the request
+	exp, err := utils.ContextClaimExpiration(r)
+	if err != nil {
+		if err.Error() == "failed to get claims" || err.Error() == "expiration not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
+			)
+			return
+		}
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Ensure the jwt token is not already expired
+	if exp.Before(time.Now()) {
+		utils.Response(w, http.StatusUnauthorized,
+			map[string]interface{}{"message": "token has already expired", "status": http.StatusUnauthorized},
+		)
+		return
+	}
+	// Revoking the jwt token
+	if err := handler.AS.RevokeToken(tokenID, id, exp); err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Clear the jwt cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		MaxAge:   -1, // Expire the cookie immediately
+		SameSite: http.SameSiteLaxMode,
+	})
+	utils.Response(w, http.StatusOK,
+		map[string]interface{}{"message": "logged out", "status": http.StatusOK},
 	)
 }

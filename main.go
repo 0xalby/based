@@ -54,7 +54,7 @@ func main() {
 	case "sqlite3":
 		driver = &drivers.DriverSqlite3{}
 	case "postgres":
-	case "turso":
+		driver = &drivers.DriverPostgres{}
 	default:
 		log.Fatal("database driver unsupported or not set")
 	}
@@ -119,6 +119,11 @@ func (server *API) Run() error {
 		r.With(httprate.LimitByIP(20, time.Hour)).
 			Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
+		r.With(jwtauth.Verifier(config.TokenAuth)).
+			With(jwtauth.Authenticator(config.TokenAuth)).
+			With(middleware.Revocation(authHandler)).
+			With(middleware.Verified(authHandler)).
+			Post("/logout", authHandler.Logout)
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).
 				Post("/verification", authHandler.Verification)
@@ -134,6 +139,7 @@ func (server *API) Run() error {
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(config.TokenAuth))
 			r.Use(jwtauth.Authenticator(config.TokenAuth))
+			r.Use(middleware.Revocation(authHandler))
 			r.Use(middleware.Verified(authHandler))
 			if os.Getenv("SMTP_ADDRESS") != "" {
 				r.With(httprate.LimitByIP(5, 24*time.Hour)).
@@ -143,7 +149,8 @@ func (server *API) Run() error {
 			r.Put("/update/password", accountHandler.UpdatePassword)
 			r.Put("/totp/enable", accountHandler.AccountEnableTOTP)
 			r.Put("/totp/disable", accountHandler.AccountDisableTOTP)
-			r.Delete("/delete", accountHandler.DeleteAccount)
+			r.With(httprate.LimitByIP(5, 24*time.Hour)).
+				Delete("/delete", accountHandler.DeleteAccount)
 		})
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(httprate.LimitByIP(5, 24*time.Hour)).
