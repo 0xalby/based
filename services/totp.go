@@ -2,17 +2,21 @@ package services
 
 import (
 	"bytes"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/0xalby/base/utils"
 	"github.com/charmbracelet/log"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/yeqown/go-qrcode/v2"
 	"github.com/yeqown/go-qrcode/writer/standard"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type TotpService struct {
@@ -32,9 +36,19 @@ func (service *TotpService) GenerateTOTPSecret(email string, id int) (*otp.Key, 
 		return nil, err
 	}
 	// Store the secret in the database
-	_, err = service.DB.Exec("UPDATE accounts SET secret = ? WHERE id = ?", key.Secret(), id)
+	rows, err := service.DB.Exec("UPDATE accounts SET secret = ? WHERE id = ?", key.Secret(), id)
 	if err != nil {
-		log.Error("failed to store TOTP secret", "err", err)
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return nil, err
+		}
+		if affected == 0 {
+			log.Error("failed to add verification code")
+			return nil, fmt.Errorf("no rows affected")
+		}
+		log.Error("failed to store totp secret", "err", err)
 		return nil, err
 	}
 	return key, nil
@@ -88,7 +102,7 @@ func (service *TotpService) ValidateTOTP(id int, code string) (bool, error) {
 		log.Error("failed to retrieve totp secret", "err", err)
 		return false, err
 	}
-	// Validate the TOTP code
+	// Validate the totp code
 	valid, err := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{Skew: 1, Digits: 6})
 	if !valid {
 		return false, err
@@ -96,6 +110,102 @@ func (service *TotpService) ValidateTOTP(id int, code string) (bool, error) {
 	return true, nil
 }
 
+// Generates backup codes
+func (service *TotpService) GenerateBackupCodes(count int, length int) ([]string, error) {
+	codes := make([]string, count)
+	for i := 0; i < count; i++ {
+		bytes := make([]byte, length)
+		if _, err := rand.Read(bytes); err != nil {
+			log.Error("failed to generate backup code", "err", err)
+			return nil, fmt.Errorf("failed to generate backup code")
+		}
+		codes[i] = hex.EncodeToString(bytes)[:length] // Truncate to desired length
+	}
+	return codes, nil
+}
+
+// Stores backup codes in the database
+func (service *TotpService) AddBackupCodes(codes []string, account int) error {
+	// Looping over the codes
+	var rows sql.Result
+	for _, code := range codes {
+		// Hasing the code
+		hash, err := utils.Hash(code)
+		if err != nil {
+			return err
+		}
+		// Adding the code to the database
+		rows, err = service.DB.Exec("INSERT INTO backup (hash, account) VALUES (?, ?)", hash, account)
+		if err != nil {
+			log.Error("failed to add backup code", "err", err)
+			return fmt.Errorf("failed to add backup code")
+		}
+		// Checking for affected rows
+		affected, err := rows.RowsAffected()
+		if err != nil {
+			log.Error("failed to get affacted rows", "err", err)
+			return err
+		}
+		if affected == 0 {
+			log.Error("failed to add backup codes", "err", err)
+			return fmt.Errorf("no rows affected")
+		}
+	}
+	return nil
+}
+
+// Validates backup codes
+func (service *TotpService) ValidateBackupCode(account int, code string) error {
+	// Fetch all unused backup codes for the account
+	rows, err := service.DB.Query("SELECT id, hash FROM backup WHERE account = ?", account)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Error("no backup codes found for the account", "err", err)
+			return fmt.Errorf("code not found")
+		}
+		log.Error("failed to retrieve backup code", "err", err)
+		return err
+	}
+	defer rows.Close()
+	// Looping over the backup codes
+	for rows.Next() {
+		var (
+			id     int
+			hashed string
+		)
+		if err := rows.Scan(&id, &hashed); err != nil {
+			log.Error("failed to iterate over rows", "err", err)
+			return fmt.Errorf("failed to scan backup code")
+		}
+		// Compare the provided code with the hashed code
+		if err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(code)); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid backup code")
+}
+
+// Deletes backup codes
+func (service *TotpService) DeleteBackupCodes(account int) error {
+	result, err := service.DB.Exec("DELETE FROM backup WHERE account = ?", account)
+	if err != nil {
+		log.Error("failed to delete backup codes", "err", err)
+		return fmt.Errorf("failed to delete backup codes")
+	}
+	// Getting affected rows
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Error("failed to get affected rows", "err", err)
+		return fmt.Errorf("failed to check affected rows")
+	}
+	if rowsAffected == 0 {
+		log.Error("no affected rows", "err", err)
+		return fmt.Errorf("no affected rows")
+	}
+	return nil
+}
+
+// Saves the qrcode to a png
 func saveQRCode(data []byte, filePath string) error {
 	// Write the data to a file
 	err := os.WriteFile(filePath, data, 0644)

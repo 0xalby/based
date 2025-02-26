@@ -300,7 +300,7 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 		)
 		return
 	}
-	// Deleting left over account codes
+	// Deleting leftover account codes
 	if err := handler.ES.DeleteCodes(id); err != nil {
 		if err.Error() != "no rows affected" {
 			utils.Response(w, http.StatusInternalServerError,
@@ -311,7 +311,7 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 	/* Optionally send email notification */
 	if os.Getenv("SMTP_ADDRESS") != "" {
 		// Sending a notification email
-		if err := handler.ES.SendNotificationEmail(account.Pending, "Deleted account", "Your account has been deleted, goodbye"); err != nil {
+		if err := handler.ES.SendNotificationEmail(account.Email, "Deleted account", "Your account has been deleted, goodbye"); err != nil {
 			utils.Response(w, http.StatusInternalServerError,
 				map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
 			)
@@ -453,6 +453,13 @@ func (handler *AccountsHandler) AccountEnableTOTP(w http.ResponseWriter, r *http
 		)
 		return
 	}
+	// Ensuring 2fa totp isn't already enabled
+	if account.TotpEnabled {
+		utils.Response(w, http.StatusForbidden,
+			map[string]interface{}{"message": "2fa already enabled", "status": http.StatusForbidden},
+		)
+		return
+	}
 	// Generating a totp secret
 	key, err := handler.TS.GenerateTOTPSecret(account.Email, id)
 	if err != nil {
@@ -476,9 +483,24 @@ func (handler *AccountsHandler) AccountEnableTOTP(w http.ResponseWriter, r *http
 		)
 		return
 	}
+	// Generating backup codes
+	codes, err := handler.TS.GenerateBackupCodes(12, 8)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Adding backup codes
+	if err := handler.TS.AddBackupCodes(codes, account.ID); err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
 	/* Base64 encoded png image */
 	utils.Response(w, http.StatusOK,
-		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "status": http.StatusOK},
+		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "backup": codes, "redirect": "/2fa", "status": http.StatusOK},
 	)
 }
 
@@ -497,8 +519,30 @@ func (handler *AccountsHandler) AccountDisableTOTP(w http.ResponseWriter, r *htt
 		)
 		return
 	}
+	// Getting the account
+	account, err := handler.AS.GetAccountByID(id)
+	if err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Ensuring 2fa isn't already disabled
+	if !account.TotpEnabled {
+		utils.Response(w, http.StatusForbidden,
+			map[string]interface{}{"message": "2fa already disabled", "status": http.StatusForbidden},
+		)
+		return
+	}
 	// Disabling 2fa totp for the account
 	if err := handler.AS.DisableTOTP(id); err != nil {
+		utils.Response(w, http.StatusInternalServerError,
+			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
+		)
+		return
+	}
+	// Deleting leftover backup codes
+	if err := handler.TS.DeleteBackupCodes(account.ID); err != nil {
 		utils.Response(w, http.StatusInternalServerError,
 			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
 		)

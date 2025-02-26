@@ -1,10 +1,10 @@
 # TODO
-* Generate TOTP backup codes
+* Review special comments
 * Add sample email templates
 * Review and audit once more
 * Write the README with a feature list section going over the files
 ## Features
-* CRUD operations rollback
+* CRUD operations transactions with rollback
 * Handlers context timeout
 * Possible often used SQL tables indexing
 ## Adding more SQL databases support

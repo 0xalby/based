@@ -28,6 +28,10 @@ type PayloadLogin struct {
 type PayloadVerification struct {
 	Code string `json:"code" validate:"required,len=6,ascii"`
 }
+type PayloadLoginWithBackupCode struct {
+	Email      string `json:"email" validate:"required,email"`
+	BackupCode string `json:"code" validate:"required,len=8,ascii"`
+}
 type PayloadAccountSendConfirmationEmail struct {
 	Email string `json:"new" validate:"required,email"`
 }

@@ -16,7 +16,6 @@ type AccountsService struct {
 
 // Creates an account in the database
 func (service *AccountsService) CreateAccount(account *types.Account) error {
-	// Executing on the database
 	rows, err := service.DB.Exec("INSERT INTO accounts (email, password) VALUES (?,?)", account.Email, account.Password)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {

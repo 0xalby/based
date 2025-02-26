@@ -130,10 +130,8 @@ func (server *API) Run() error {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).
 				Post("/resend", authHandler.ResendVerification)
 		}
-		r.With(jwtauth.Verifier(config.TokenAuth)).
-			With(jwtauth.Authenticator(config.TokenAuth)).
-			With(middleware.Verified(authHandler)).
-			Post("/backup", func(w http.ResponseWriter, r *http.Request) {})
+		r.With(httprate.LimitByIP(5, time.Hour*24)).
+			Post("/backup", authHandler.LoginWithBackupCode)
 	})
 	subrouter.Route("/account", func(r chi.Router) {
 		r.Group(func(r chi.Router) {
