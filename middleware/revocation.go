@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/0xalby/base/handlers"
-	"github.com/0xalby/base/utils"
+	"github.com/0xalby/based/handlers"
+	"github.com/0xalby/based/utils"
 	"github.com/go-chi/jwtauth/v5"
 )
 
@@ -29,7 +29,7 @@ func Revocation(handler *handlers.AuthHandler) func(http.Handler) http.Handler {
 			}
 			// Querying the database for the token
 			var exists bool
-			err = handler.AS.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM blacklist WHERE token = ?)", tokenID).
+			err = handler.BS.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM blacklist WHERE token = ?)", tokenID).
 				Scan(&exists)
 			if err != nil {
 				utils.Response(w, http.StatusInternalServerError,

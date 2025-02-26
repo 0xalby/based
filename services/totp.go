@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xalby/base/utils"
+	"github.com/0xalby/based/utils"
 	"github.com/charmbracelet/log"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -71,7 +71,7 @@ func (service *TotpService) GenerateQRCode(key *otp.Key) ([]byte, error) {
 	}
 	// Encode the QR code as a PNG
 	var buf bytes.Buffer
-	w := standard.NewWithWriter(nopCloser{&buf}, standard.WithQRWidth(64)) // QR Code size
+	w := standard.NewWithWriter(nopCloser{&buf}, standard.WithQRWidth(16)) // QR Code size
 	if err := qrc.Save(w); err != nil {
 		log.Error("failed to encode qrcode", "err", err)
 		return nil, err
@@ -82,7 +82,12 @@ func (service *TotpService) GenerateQRCode(key *otp.Key) ([]byte, error) {
 			log.Error("failed to encode qrcode as png", "err", err)
 			return nil, err
 		}
-		if err := saveQRCode(buf.Bytes(), "qrcode.png"); err != nil {
+		// Ensuring the log directory exists
+		if err := os.MkdirAll("qrcode", 0755); err != nil {
+			log.Fatal("failed to create log directory", "err", err)
+		}
+		// Saving the image
+		if err := saveQRCode(buf.Bytes(), "qrcode/qrcode.png"); err != nil {
 			log.Error("failed to save qrcode", "err", err)
 			return nil, err
 		}
@@ -129,7 +134,7 @@ func (service *TotpService) AddBackupCodes(codes []string, account int) error {
 	// Looping over the codes
 	var rows sql.Result
 	for _, code := range codes {
-		// Hasing the code
+		// Hashing the code
 		hash, err := utils.Hash(code)
 		if err != nil {
 			return err

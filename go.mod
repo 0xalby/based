@@ -1,4 +1,4 @@
-module github.com/0xalby/base
+module github.com/0xalby/based
 
 go 1.24.0
 

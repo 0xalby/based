@@ -5,10 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/0xalby/base/config"
-	"github.com/0xalby/base/services"
-	"github.com/0xalby/base/types"
-	"github.com/0xalby/base/utils"
+	"github.com/0xalby/based/config"
+	"github.com/0xalby/based/services"
+	"github.com/0xalby/based/types"
+	"github.com/0xalby/based/utils"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
 )
@@ -17,6 +17,7 @@ type AuthHandler struct {
 	AS *services.AccountsService
 	ES *services.EmailService
 	TS *services.TotpService
+	BS *services.BlacklistService
 }
 
 func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +75,7 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		// Getting account by email
 		account, err = handler.AS.GetAccountByEmail(account.Email)
 		if err != nil {
-			if err.Error() == "account doesn't exists" {
+			if err.Error() == "account not found" {
 				utils.Response(w, http.StatusBadRequest,
 					map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest},
 				)
@@ -93,12 +94,13 @@ func (handler *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Sending a response
-	/* Here we could have an http redirect to the email verification page, but can also be handled frontend side */
 	utils.Response(w, http.StatusCreated,
+		/* Here we could have an http redirect to the email verification page */
 		map[string]interface{}{"message": "created", "status": http.StatusCreated},
 	)
 }
 
+// TOTP requires two pages or one page including the code before sending the request
 func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Creating a payload
 	var payload types.PayloadLogin
@@ -113,7 +115,7 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Getting the account
 	account, err := handler.AS.GetAccountByEmail(payload.Email)
 	if err != nil {
-		if err.Error() == "account doesn't exists" {
+		if err.Error() == "account not found" {
 			utils.Response(w, http.StatusBadRequest,
 				map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest},
 			)
@@ -127,11 +129,10 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Comparing passwords
 	if !utils.CompareHashedAndPlain(account.Password, payload.Password) {
 		utils.Response(w, http.StatusUnauthorized,
-			map[string]interface{}{"message": "wrong email or password", "status": http.StatusUnauthorized},
+			map[string]interface{}{"message": "invalid credentials", "status": http.StatusUnauthorized},
 		)
 		return
 	}
-	/* TOTP requires two pages or one page including TOTP input for before sending the request */
 	// Asking for totp validation if the account has it enabled
 	if account.TotpEnabled {
 		valid, err := handler.TS.ValidateTOTP(account.ID, payload.TOTP)
@@ -171,8 +172,8 @@ func (handler *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   int(time.Until(expiration).Seconds()),
 		SameSite: http.SameSiteLaxMode,
 		Expires:  expiration})
-	/* Here we could have an http redirect to the dashboard page, but can also be handled frontend side */
 	utils.Response(w, http.StatusOK,
+		/* Here we could have an http redirect to the dashboard page */
 		map[string]interface{}{"message": "token generated", "token": token, "redirect": "/", "status": http.StatusOK},
 	)
 }
@@ -242,8 +243,7 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 	)
 }
 
-/* There will likely be a button for him/her to get a new one and send another email. */
-// This if for a user that tries to log in and cannot do anything because the email isn't verified but the first code send after registration expired.
+/* Resending verification email if expired */
 func (handler *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {
 	// Claiming the account id from request context
 	id, err := utils.ContextClaimID(r)
@@ -353,7 +353,7 @@ func (handler *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Revoking the jwt token
-	if err := handler.AS.RevokeToken(tokenID, id, exp); err != nil {
+	if err := handler.BS.RevokeToken(tokenID, id, exp); err != nil {
 		utils.Response(w, http.StatusInternalServerError,
 			map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
 		)
@@ -388,7 +388,7 @@ func (handler *AuthHandler) LoginWithBackupCode(w http.ResponseWriter, r *http.R
 	// Getting the account
 	account, err := handler.AS.GetAccountByEmail(payload.Email)
 	if err != nil {
-		if err.Error() == "account doesn't exists" {
+		if err.Error() == "account not found" {
 			utils.Response(w, http.StatusBadRequest,
 				map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest},
 			)
@@ -465,7 +465,7 @@ func (handler *AuthHandler) LoginWithBackupCode(w http.ResponseWriter, r *http.R
 	}
 	/* Base64 encoded png image */
 	utils.Response(w, http.StatusOK,
-		/* This would redirect to the 2fa totp setup page */
-		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "backup": codes, "redirect": "/2fa", "status": http.StatusOK},
+		/* Here we could have an http redirect to the 2fa setup page */
+		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "backup": codes, "status": http.StatusOK},
 	)
 }

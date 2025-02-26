@@ -1,10 +1,10 @@
 # TODO
-* Review special comments
-* Add sample email templates
-* Review and audit once more
 * Write the README with a feature list section going over the files
 ## Features
+* Decouple the revocation middleware querying the database in the blacklist service
+* Adding CORS(chi/cors) middleware to use the API and frontend on different (sub)domains
 * CRUD operations transactions with rollback
+* Unit testing
 * Handlers context timeout
 * Possible often used SQL tables indexing
 ## Adding more SQL databases support

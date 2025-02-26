@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/0xalby/base/handlers"
-	"github.com/0xalby/base/utils"
+	"github.com/0xalby/based/handlers"
+	"github.com/0xalby/based/utils"
 )
 
 type key int
@@ -33,7 +33,7 @@ func Verified(handler *handlers.AuthHandler) func(http.Handler) http.Handler {
 			// Getting the account
 			account, err := handler.AS.GetAccountByID(id)
 			if err != nil {
-				if err.Error() == "account doesn't exist" {
+				if err.Error() == "account not found" {
 					utils.Response(w, http.StatusBadRequest,
 						map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest},
 					)

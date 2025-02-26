@@ -17,7 +17,7 @@ import (
 
 // Unmarshals json into a type struct
 func Unmarshal(w http.ResponseWriter, r *http.Request, payload any) error {
-	// Checks for an empty payload
+	// Checking for an empty payload
 	if r.Body == nil {
 		Response(w, http.StatusBadRequest, map[string]interface{}{"message": "empty request body", "status": http.StatusBadRequest})
 		return fmt.Errorf("empty request")
@@ -31,10 +31,10 @@ func Unmarshal(w http.ResponseWriter, r *http.Request, payload any) error {
 	return nil
 }
 
-// Initializes the validator
+// Global instance of the validator
 var Validator = validator.New(validator.WithRequiredStructEnabled())
 
-// Validates an application/json body
+// Validates a struct
 func Validate(w http.ResponseWriter, r *http.Request, payload any) error {
 	if err := Validator.Struct(payload); err != nil {
 		if verrs := err.(validator.ValidationErrors); verrs != nil {
@@ -48,7 +48,7 @@ func Validate(w http.ResponseWriter, r *http.Request, payload any) error {
 // Sends a response
 func Response(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
-	// Set security headers
+	// Setting security headers
 	w.Header().Set("Content-Security-Policy", "default-src 'self'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
@@ -97,7 +97,7 @@ func ContextClaimID(r *http.Request) (int, error) {
 	}
 	id, ok := claims["account"].(float64)
 	if !ok {
-		log.Warn("account not found in claims or not a float64")
+		log.Error("account not found in claims or not a float64")
 		return 0, fmt.Errorf("account not found in claims or not a float64")
 	}
 	return int(id), nil
@@ -112,7 +112,7 @@ func ContextClaimExpiration(r *http.Request) (time.Time, error) {
 	}
 	exp, ok := claims["exp"].(time.Time)
 	if !ok {
-		log.Warn("expiration not found in claims or not a float64")
+		log.Error("expiration not found in claims or not a float64")
 		return time.Time{}, fmt.Errorf("expiration not found in claims or not a float64")
 	}
 	return exp, nil
@@ -127,13 +127,13 @@ func Hash(password string) (string, error) {
 	return string(hash), nil
 }
 
-// Compares an hashed and plain string
+// Compares hashed strings with plaintext ones
 func CompareHashedAndPlain(hashed, plain string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(plain))
 	return err == nil
 }
 
-// Generating a random 6 six digit code
+// Generating a random alphanumeric code
 func GenerateRandomCode(lenght int) (string, error) {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))

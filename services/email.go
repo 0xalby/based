@@ -237,7 +237,6 @@ func (service *EmailService) DeleteCodes(account int) error {
 		return err
 	}
 	if affected == 0 {
-		log.Error("failed to delete codes")
 		return fmt.Errorf("no rows affected")
 	}
 	return nil

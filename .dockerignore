@@ -1,4 +1,7 @@
 *.db
+*.diff
 .env
 .vscode
 bin
+log
+qrcode

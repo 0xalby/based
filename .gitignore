@@ -3,4 +3,5 @@
 .env
 .vscode
 bin
-qrcode.png
+log
+qrcode

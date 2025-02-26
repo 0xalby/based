@@ -3,17 +3,18 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/0xalby/base/config"
-	"github.com/0xalby/base/database"
-	"github.com/0xalby/base/database/drivers"
-	"github.com/0xalby/base/handlers"
-	"github.com/0xalby/base/middleware"
-	"github.com/0xalby/base/services"
+	"github.com/0xalby/based/config"
+	"github.com/0xalby/based/database"
+	"github.com/0xalby/based/database/drivers"
+	"github.com/0xalby/based/handlers"
+	"github.com/0xalby/based/middleware"
+	"github.com/0xalby/based/services"
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	chiddlware "github.com/go-chi/chi/v5/middleware"
@@ -40,7 +41,7 @@ func NewAPI(addr string, db *sql.DB) *API {
 func init() {
 	// Loading enviroment variables from .env
 	if err := godotenv.Load(); err != nil {
-		return
+		log.Fatal("failed to load .env enviroment variables")
 	}
 }
 
@@ -94,8 +95,19 @@ func (server *API) Run() error {
 	router := chi.NewRouter()
 	// Rate limiting everything reasonably
 	router.Use(httprate.LimitByIP(50, time.Hour/2))
+	// Ensuring the log directory exists
+	if err := os.MkdirAll("log", 0755); err != nil {
+		log.Fatal("failed to create log directory", "err", err)
+	}
+	// Opening a file for logging
+	file, err := os.OpenFile("log/api.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal("failed to open log file", "err", err)
+	}
+	defer file.Close()
 	// Creating a logger
-	logger := log.New(os.Stdout)
+	multiWriter := io.MultiWriter(os.Stdout, file)
+	logger := log.New(multiWriter)
 	logger.SetReportTimestamp(false)
 	logger.SetReportCaller(false)
 	logger.SetLevel(log.InfoLevel)
@@ -107,9 +119,10 @@ func (server *API) Run() error {
 	accountService := &services.AccountsService{DB: server.db}
 	emailService := &services.EmailService{FS: templateFS, DB: server.db}
 	totpService := &services.TotpService{DB: server.db}
+	blacklistService := &services.BlacklistService{DB: server.db}
 	// Creating handlers
 	accountHandler := &handlers.AccountsHandler{AS: accountService, ES: emailService, TS: totpService}
-	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService, TS: totpService}
+	authHandler := &handlers.AuthHandler{AS: accountService, ES: emailService, TS: totpService, BS: blacklistService}
 	// Using the real ip middleware
 	subrouter.Use(chiddlware.RealIP)
 	// Using the logger middleware

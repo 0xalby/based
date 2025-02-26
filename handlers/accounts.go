@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/0xalby/base/services"
-	"github.com/0xalby/base/types"
-	"github.com/0xalby/base/utils"
+	"github.com/0xalby/based/services"
+	"github.com/0xalby/based/types"
+	"github.com/0xalby/based/utils"
 )
 
 type AccountsHandler struct {
@@ -146,7 +146,7 @@ func (handler *AccountsHandler) UpdateEmail(w http.ResponseWriter, r *http.Reque
 		)
 		return
 	}
-	/* Optionally send email notification */
+	// Optionally send email notification
 	if os.Getenv("SMTP_ADDRESS") != "" {
 		// Sending a notification email
 		if err := handler.ES.SendNotificationEmail(account.Pending, "Updated email address", "Your email address has been updated"); err != nil {
@@ -204,11 +204,11 @@ func (handler *AccountsHandler) UpdatePassword(w http.ResponseWriter, r *http.Re
 	// Comparing passwords
 	if !utils.CompareHashedAndPlain(account.Password, payload.Old) {
 		utils.Response(w, http.StatusUnauthorized,
-			map[string]interface{}{"message": "wrong email or password", "status": http.StatusUnauthorized},
+			map[string]interface{}{"message": "wrong password", "status": http.StatusUnauthorized},
 		)
 		return
 	}
-	// Hashes the new password
+	// Hashing the new password
 	hashed, err := utils.Hash(payload.New)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError,
@@ -275,9 +275,9 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 	// Getting the account
 	account, err := handler.AS.GetAccountByID(id)
 	if err != nil {
-		if err.Error() == "account doesn't exist" {
+		if err.Error() == "account not found" {
 			utils.Response(w, http.StatusUnauthorized,
-				map[string]interface{}{"message": "account doesn't exist", "status": http.StatusUnauthorized},
+				map[string]interface{}{"message": "account not found", "status": http.StatusUnauthorized},
 			)
 			return
 		}
@@ -306,9 +306,10 @@ func (handler *AccountsHandler) DeleteAccount(w http.ResponseWriter, r *http.Req
 			utils.Response(w, http.StatusInternalServerError,
 				map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
 			)
+			return
 		}
 	}
-	/* Optionally send email notification */
+	// Optionally send email notification
 	if os.Getenv("SMTP_ADDRESS") != "" {
 		// Sending a notification email
 		if err := handler.ES.SendNotificationEmail(account.Email, "Deleted account", "Your account has been deleted, goodbye"); err != nil {
@@ -337,7 +338,7 @@ func (handler *AccountsHandler) Recovery(w http.ResponseWriter, r *http.Request)
 	// Getting account by email
 	account, err := handler.AS.GetAccountByEmail(payload.Email)
 	if err != nil {
-		if err.Error() == "account doesn't exists" {
+		if err.Error() == "account not found" {
 			utils.Response(w, http.StatusBadRequest,
 				map[string]interface{}{"message": "account not existing", "status": http.StatusBadRequest})
 			return
@@ -410,7 +411,7 @@ func (handler *AccountsHandler) Reset(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// Hashes the new password
+	// Hashing the new password
 	hashed, err := utils.Hash(payload.Password)
 	if err != nil {
 		utils.Response(w, http.StatusInternalServerError,
@@ -500,7 +501,8 @@ func (handler *AccountsHandler) AccountEnableTOTP(w http.ResponseWriter, r *http
 	}
 	/* Base64 encoded png image */
 	utils.Response(w, http.StatusOK,
-		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "backup": codes, "redirect": "/2fa", "status": http.StatusOK},
+		/* Here we could have an http redirect to the 2fa setup page */
+		map[string]interface{}{"message": "enabled", "secret": key.Secret(), "qr_code": qrCode, "backup": codes, "status": http.StatusOK},
 	)
 }
 
