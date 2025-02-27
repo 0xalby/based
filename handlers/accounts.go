@@ -34,7 +34,7 @@ func (handler *AccountsHandler) SendConfirmationEmail(w http.ResponseWriter, r *
 		)
 		return
 	}
-	// Claiming the account id from request context
+	// Claiming the account id from request
 	id, err := utils.ContextClaimID(r)
 	if err != nil {
 		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {

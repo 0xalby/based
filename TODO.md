@@ -1,5 +1,5 @@
 # TODO
-* Write the README with a feature list section going over the files
+* Testing the Docker image
 ## Features
 * Decouple the revocation middleware querying the database in the blacklist service
 * Adding CORS(chi/cors) middleware to use the API and frontend on different (sub)domains

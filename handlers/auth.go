@@ -189,12 +189,12 @@ func (handler *AuthHandler) Verification(w http.ResponseWriter, r *http.Request)
 	if err := utils.Validate(w, r, &payload); err != nil {
 		return
 	}
-	// Getting account id by code ownership
-	id, err := handler.ES.GetAccountIDByCodeOwnership(payload.Code)
+	// Claiming the account id from request context
+	id, err := utils.ContextClaimID(r)
 	if err != nil {
-		if err.Error() == "invalid or expired code" {
-			utils.Response(w, http.StatusBadRequest,
-				map[string]interface{}{"message": "invalid or expired code", "status": http.StatusBadRequest},
+		if err.Error() == "failed to get claims" || err.Error() == "account not found in claims or not a float64" {
+			utils.Response(w, http.StatusUnauthorized,
+				map[string]interface{}{"message": "invalid token", "status": http.StatusUnauthorized},
 			)
 			return
 		}

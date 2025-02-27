@@ -135,13 +135,18 @@ func (server *API) Run() error {
 		r.With(jwtauth.Verifier(config.TokenAuth)).
 			With(jwtauth.Authenticator(config.TokenAuth)).
 			With(middleware.Revocation(authHandler)).
-			With(middleware.Verified(authHandler)).
 			Post("/logout", authHandler.Logout)
 		if os.Getenv("SMTP_ADDRESS") != "" {
 			r.With(httprate.LimitByIP(5, time.Hour*24)).
+				With(jwtauth.Verifier(config.TokenAuth)).
+				With(jwtauth.Authenticator(config.TokenAuth)).
+				With(middleware.Revocation(authHandler)).
 				Post("/verification", authHandler.Verification)
-			r.With(httprate.LimitByIP(5, time.Hour*24)).
-				Post("/resend", authHandler.ResendVerification)
+			r.With(jwtauth.Verifier(config.TokenAuth)).
+				With(jwtauth.Authenticator(config.TokenAuth)).
+				With(middleware.Revocation(authHandler)).
+				With(httprate.LimitByIP(5, time.Hour*24)).
+				Get("/resend", authHandler.ResendVerification)
 		}
 		r.With(httprate.LimitByIP(5, time.Hour*24)).
 			Post("/backup", authHandler.LoginWithBackupCode)
