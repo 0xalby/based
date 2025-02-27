@@ -14,7 +14,7 @@ require (
 	github.com/pquerna/otp v1.4.0
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.2.5
-	golang.org/x/crypto v0.34.0
+	golang.org/x/crypto v0.35.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	modernc.org/sqlite v1.36.0
 )
