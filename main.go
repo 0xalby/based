@@ -5,8 +5,10 @@ import (
 	"embed"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/0xalby/based/config"
@@ -18,6 +20,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/go-chi/chi/v5"
 	chiddlware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/joho/godotenv"
@@ -41,7 +44,7 @@ func NewAPI(addr string, db *sql.DB) *API {
 func init() {
 	// Loading enviroment variables from .env
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("failed to load .env enviroment variables")
+		log.Fatal("failed to load .env(names in .env.example)")
 	}
 }
 
@@ -95,6 +98,23 @@ func (server *API) Run() error {
 	router := chi.NewRouter()
 	// Rate limiting everything reasonably
 	router.Use(httprate.LimitByIP(50, time.Hour/2))
+	// Enabling CORS if the origins are set
+	if os.Getenv("CORS_ORIGINS") != "" {
+		origins := strings.Split(os.Getenv("CORS_ORIGINS"), " ")
+		for _, origin := range origins {
+			url, err := url.Parse(origin)
+			if err != nil || (url.Scheme != "http" && url.Scheme != "https") {
+				log.Fatal("bad cors origin")
+			}
+		}
+		router.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   origins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}))
+	}
 	// Ensuring the log directory exists
 	if err := os.MkdirAll("log", 0755); err != nil {
 		log.Fatal("failed to create log directory", "err", err)

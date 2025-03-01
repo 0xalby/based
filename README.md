@@ -13,7 +13,7 @@ I like Tiago's idea of moving to a micro service infrastracure(gRPC, proto buffe
 * Authentication(JWT, 2FA TOTP and optional email verification)
 * Single static executable
 * Modular with dependency injections
-* Commented all the way
+* Commented all the way and configured with a .env file(example in .env.example)
 * Audited for BOLA, CSRF, XSS and SQL injections
 
 ## Installation

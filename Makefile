@@ -11,7 +11,7 @@ debug: build
 run: build
 	@./bin/based
 
-clean:
+clean: bin
 	@rm -r bin
 
 up:

@@ -31,3 +31,17 @@ func (service *BlacklistService) RevokeToken(tokenID string, id int, expiration 
 	}
 	return err
 }
+
+// Tries to find a blacklisted token
+func (service *BlacklistService) FindToken(tokenID string) (bool, error) {
+	var exists bool
+	err := service.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM blacklist WHERE token = ?)", tokenID).Scan(&exists)
+	if err != nil {
+		log.Error("failed to scan")
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+	return true, nil
+}

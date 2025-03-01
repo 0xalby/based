@@ -28,9 +28,7 @@ func Revocation(handler *handlers.AuthHandler) func(http.Handler) http.Handler {
 				return
 			}
 			// Querying the database for the token
-			var exists bool
-			err = handler.BS.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM blacklist WHERE token = ?)", tokenID).
-				Scan(&exists)
+			exists, err := handler.BS.FindToken(tokenID)
 			if err != nil {
 				utils.Response(w, http.StatusInternalServerError,
 					map[string]interface{}{"message": "internal server error", "status": http.StatusInternalServerError},
