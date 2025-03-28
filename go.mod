@@ -16,7 +16,7 @@ require (
 	github.com/yeqown/go-qrcode/writer/standard v1.2.5
 	golang.org/x/crypto v0.36.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
-	modernc.org/sqlite v1.36.2
+	modernc.org/sqlite v1.36.3
 )
 
 require (
